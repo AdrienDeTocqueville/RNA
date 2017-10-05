@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="RNA" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/RNA" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-std=c++11" />
+					<Add option="-g" />
+					<Add option="-DDEBUG" />
+					<Add option="-DTENSOR_SAFE" />
+				</Compiler>
+				<Linker>
+					<Add library="sfml-graphics-d" />
+					<Add library="sfml-window-d" />
+					<Add library="sfml-system-d" />
+				</Linker>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/RNA" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+					<Add library="sfml-graphics" />
+					<Add library="sfml-window" />
+					<Add library="sfml-system" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add option="-fexceptions" />
+			<Add directory="C:/Users/Otarie/Libs/SFML/include" />
+		</Compiler>
+		<Linker>
+			<Add library="mingw32" />
+			<Add library="user32" />
+			<Add library="gdi32" />
+			<Add library="winmm" />
+			<Add library="dxguid" />
+			<Add directory="C:/Users/Otarie/Libs/SFML/lib" />
+		</Linker>
+		<Unit filename="Image.cpp" />
+		<Unit filename="Image.h" />
+		<Unit filename="Layers/Convolutionnal.cpp" />
+		<Unit filename="Layers/Convolutionnal.h" />
+		<Unit filename="Layers/Layers.cpp" />
+		<Unit filename="Layers/Layers.h" />
+		<Unit filename="Layers/Linear.cpp" />
+		<Unit filename="Layers/Linear.h" />
+		<Unit filename="Layers/LogSoftMax.cpp" />
+		<Unit filename="Layers/LogSoftMax.h" />
+		<Unit filename="Layers/MaxPooling.cpp" />
+		<Unit filename="Layers/MaxPooling.h" />
+		<Unit filename="Layers/Reshape.cpp" />
+		<Unit filename="Layers/Reshape.h" />
+		<Unit filename="LossFunction.cpp" />
+		<Unit filename="LossFunction.h" />
+		<Unit filename="Network.cpp" />
+		<Unit filename="Network.h" />
+		<Unit filename="Tensor.cpp" />
+		<Unit filename="Tensor.h" />
+		<Unit filename="main.cpp" />
+		<Unit filename="util.cpp" />
+		<Unit filename="util.h" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
