@@ -439,32 +439,7 @@ void Tensor::addOuterProduct(const Tensor& a, const Tensor& b)
             operator()(i, j) += a(i) * b(j);
 }
 
-void Tensor::addConvolve1(const Tensor& src, const Tensor& kernel)
-{
-    #ifdef TENSOR_SAFE
-        if (src.size(0) != kernel.size(1))
-            std::cout << "Tensor::addConvolve1 -> Kernel and source image don't have same the number of channels." << std::endl;
-
-        if (size(0) != kernel.size(0) || size(1) != src.size(1)-kernel.size(2)+1 || size(2) != src.size(2)-kernel.size(3)+1)
-            std::cout << "Tensor::addConvolve1 -> Result do not fit in tensor." << std::endl;
-    #endif
-
-    for (unsigned k(0) ; k < size(0) ; k++)
-    {
-        for (unsigned i(0) ; i < size(1) ; i++)
-        {
-            for (unsigned j(0) ; j < size(2) ; j++)
-            {
-                for (unsigned u(0) ; u < kernel.size(2) ; u++)
-                    for (unsigned v(0) ; v < kernel.size(3) ; v++)
-                        for (unsigned c(0) ; c < src.size(0) ; c++)
-                            operator()(k, i, j) += src(c, src.size(1)-1- i-u, src.size(2)-1- j-v) * kernel({k, c, u, v});
-            }
-        }
-    }
-}
-
-void convolve(Tensor& result, const Tensor& src, const Tensor& kernel)
+void convolve(Tensor& result, const Tensor& kernel, const Tensor& src)
 {
     #ifdef TENSOR_SAFE
         if (src.size(0) != kernel.size(1))
@@ -474,6 +449,8 @@ void convolve(Tensor& result, const Tensor& src, const Tensor& kernel)
     coords_t resSize{ kernel.size(0), src.size(1)-kernel.size(2)+1, src.size(2)-kernel.size(3)+1 };
     result.resize(resSize);
 
+    unsigned mu = kernel.size(2)-1;
+    unsigned mv = kernel.size(3)-1;
 
     for (unsigned k(0) ; k < kernel.size(0) ; k++)
     {
@@ -486,7 +463,7 @@ void convolve(Tensor& result, const Tensor& src, const Tensor& kernel)
                 for (unsigned u(0) ; u < kernel.size(2) ; u++)
                     for (unsigned v(0) ; v < kernel.size(3) ; v++)
                         for (unsigned c(0) ; c < src.size(0) ; c++)
-                            result(k, i, j) += src(c, i+u, j+v) * kernel({k, c, kernel.size(2)-1- u, kernel.size(3)-1- v});
+                            result(k, i, j) += kernel({k, c, mu-u, mv-v}) * src(c, i+u, j+v);
             }
         }
     }

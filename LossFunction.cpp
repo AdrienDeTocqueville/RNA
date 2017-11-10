@@ -27,4 +27,4 @@ Tensor NLL::getGradient(const Tensor& _estimation, const Tensor& _target)
     return output;
 }
 
-};
+}

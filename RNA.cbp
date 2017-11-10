@@ -54,8 +54,8 @@
 		</Linker>
 		<Unit filename="Image.cpp" />
 		<Unit filename="Image.h" />
-		<Unit filename="Layers/Convolutionnal.cpp" />
-		<Unit filename="Layers/Convolutionnal.h" />
+		<Unit filename="Layers/Convolutional.cpp" />
+		<Unit filename="Layers/Convolutional.h" />
 		<Unit filename="Layers/Layers.cpp" />
 		<Unit filename="Layers/Layers.h" />
 		<Unit filename="Layers/Linear.cpp" />
@@ -70,6 +70,7 @@
 		<Unit filename="LossFunction.h" />
 		<Unit filename="Network.cpp" />
 		<Unit filename="Network.h" />
+		<Unit filename="RNA.h" />
 		<Unit filename="Tensor.cpp" />
 		<Unit filename="Tensor.h" />
 		<Unit filename="main.cpp" />

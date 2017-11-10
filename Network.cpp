@@ -1,10 +1,12 @@
-#include "Network.h"
+#include "RNA.h"
 
 #include <algorithm>
 
 #include <iostream>
 #include <fstream>
 #include <ctime>
+
+
 
 namespace rna
 {

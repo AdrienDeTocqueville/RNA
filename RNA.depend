@@ -27,22 +27,15 @@
 	<iostream>
 	<cstdlib>
 
-1507207924 source:d:\adrien\prog\rna\main.cpp
+1507302377 source:d:\adrien\prog\rna\main.cpp
 	<iostream>
-	<fstream>
-	<cmath>
-	"Network.h"
+	<windows.h>
+	"RNA.h"
 	"Image.h"
 
-1507208697 d:\adrien\prog\rna\network.h
+1507302174 d:\adrien\prog\rna\network.h
 	<string>
-	"LossFunction.h"
-	"Layers/Layers.h"
-	"Layers/Linear.h"
-	"Layers/Reshape.h"
-	"Layers/MaxPooling.h"
-	"Layers/LogSoftMax.h"
-	"Layers/Convolutional.h"
+	"Tensor.h"
 
 1475420974 d:\adrien\prog\rna\neuron.h
 	<vector>
@@ -53,8 +46,8 @@
 	<cmath>
 	<cstdlib>
 
-1507208403 source:d:\adrien\prog\rna\network.cpp
-	"Network.h"
+1507302275 source:d:\adrien\prog\rna\network.cpp
+	"RNA.h"
 	<algorithm>
 	<iostream>
 	<fstream>
@@ -673,7 +666,7 @@
 	"Tensor.h"
 	"Network.h"
 
-1507207262 source:d:\adrien\prog\rna\image.cpp
+1507302333 source:d:\adrien\prog\rna\image.cpp
 	"Image.h"
 	<iostream>
 	<fstream>
@@ -684,7 +677,7 @@
 	"Tensor.h"
 	"Network.h"
 
-1507208801 d:\adrien\prog\rna\tensor.h
+1507301799 d:\adrien\prog\rna\tensor.h
 	<initializer_list>
 	<vector>
 	"util.h"
@@ -704,7 +697,7 @@
 1505672086 source:d:\adrien\prog\rna\lossfunction.cpp
 	"LossFunction.h"
 
-1507208857 source:d:\adrien\prog\rna\tensor.cpp
+1507301898 source:d:\adrien\prog\rna\tensor.cpp
 	"Tensor.h"
 	<iostream>
 	<cmath>
@@ -752,11 +745,21 @@
 	"Reshape.h"
 	<fstream>
 
-1507208495 d:\adrien\prog\rna\layers\convolutional.h
+1507302607 d:\adrien\prog\rna\layers\convolutional.h
 	"Layers.h"
 
-1507208870 source:d:\adrien\prog\rna\layers\convolutional.cpp
+1507302578 source:d:\adrien\prog\rna\layers\convolutional.cpp
 	"Convolutional.h"
 	<fstream>
 	<iostream>
+
+1507302275 d:\adrien\prog\rna\rna.h
+	"Network.h"
+	"LossFunction.h"
+	"Layers/Layers.h"
+	"Layers/Linear.h"
+	"Layers/Reshape.h"
+	"Layers/MaxPooling.h"
+	"Layers/LogSoftMax.h"
+	"Layers/Convolutional.h"
 

@@ -25,4 +25,4 @@ struct NLL: public LossFunction
     virtual Tensor getGradient(const Tensor& _estimation, const Tensor& _target);
 };
 
-};
+}

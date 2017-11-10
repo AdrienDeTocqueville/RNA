@@ -59,7 +59,7 @@ void Convolutional::randomize()
 
 Tensor Convolutional::feedForward(const Tensor& _input)
 {
-    convolve(output, _input, weights);
+    convolve(output, weights, _input);
     output += bias;
 
     return output;
@@ -67,9 +67,9 @@ Tensor Convolutional::feedForward(const Tensor& _input)
 
 Tensor Convolutional::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
-    convGradInput(gradInput, _gradOutput, weights);
+    convGradInput(gradInput, weights, _gradOutput);
 
-    convGradWeight(gradWeight, _input, _gradOutput);
+    convGradWeight(gradWeight, _gradOutput, _input);
     gradBias += _gradOutput;
 
     return gradInput;
@@ -130,7 +130,7 @@ void Convolutional::saveToFile(std::ofstream& _file) const
 }
 
 
-void convGradInput(Tensor& gradInput, const Tensor& gradOutput, const Tensor& kernel)
+void convGradInput(Tensor& gradInput, const Tensor& kernel, const Tensor& gradOutput)
 {
     #ifdef TENSOR_SAFE
         if (gradOutput.size(0) != kernel.size(0))
@@ -158,7 +158,7 @@ void convGradInput(Tensor& gradInput, const Tensor& gradOutput, const Tensor& ke
                         if (ii >= 0 && ii < gradOutput.size(1) && jj >= 0 && jj < gradOutput.size(2))
                         {
                             for (unsigned c(0) ; c < gradOutput.size(0) ; c++)
-                                gradInput(k, i, j) += gradOutput(c, ii, jj) * kernel({c, k, u, v});
+                                gradInput(k, i, j) += kernel({c, k, u, v}) * gradOutput(c, ii, jj);
                         }
                     }
                 }
@@ -167,14 +167,14 @@ void convGradInput(Tensor& gradInput, const Tensor& gradOutput, const Tensor& ke
     }
 }
 
-void convGradWeight(Tensor& gradWeight, const Tensor& input, const Tensor& gradOutput)
+void convGradWeight(Tensor& gradWeight, const Tensor& gradOutput, const Tensor& input)
 {
     #ifdef TENSOR_SAFE
         if (input.size(0) != gradWeight.size(1))
-            std::cout << "Tensor::convGradWeight -> Kernel and source image don't have same the number of channels." << std::endl;
+            std::cout << "convGradWeight -> Kernel and source image don't have same the number of channels." << std::endl;
 
         if (gradWeight.size(0) != gradOutput.size(0) || gradWeight.size(2) != input.size(1)-gradOutput.size(1)+1 || gradWeight.size(3) != input.size(2)-gradOutput.size(2)+1)
-            std::cout << "Tensor::convGradWeight -> Result do not fit in tensor." << std::endl;
+            std::cout << "convGradWeight -> Result do not fit in tensor." << std::endl;
     #endif
 
     for (unsigned k(0) ; k < gradWeight.size(0) ; k++)

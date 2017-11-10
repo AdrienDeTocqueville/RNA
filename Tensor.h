@@ -70,7 +70,6 @@ class Tensor
         void operator-=(const Tensor& _tensor);
 
         void addOuterProduct(const Tensor& a, const Tensor& b);
-        void addConvolve1(const Tensor& src, const Tensor& kernel); // Rotate src
 
     private:
         coords_t  dimensions;
@@ -78,7 +77,7 @@ class Tensor
         std::vector<value_type> values;
 };
 
-void convolve(Tensor& result, const Tensor& src, const Tensor& kernel);
+void convolve(Tensor& result, const Tensor& kernel, const Tensor& src);
 
 void dot(value_type& result, const Tensor& a, const Tensor& b);
 void outerProduct(Tensor& result, const Tensor& a, const Tensor& b);

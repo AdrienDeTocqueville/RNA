@@ -8,7 +8,7 @@ namespace rna
 class Convolutional: public Layer
 {
     public:
-        Convolutional(coords_t inputDimensions = {3, 32, 32}, coords_t kernelDimensions = {3, 3}, size_t _outputChannels = 3);
+        Convolutional(coords_t kernelDimensions = {3, 3}, coords_t inputDimensions = {3, 32, 32}, size_t _outputChannels = 3);
         Convolutional(std::ifstream& _file);
 
         void randomize();
@@ -32,7 +32,7 @@ class Convolutional: public Layer
         Tensor deltaBias;
 };
 
-void convGradInput(Tensor& gradInput, const Tensor& gradOutput, const Tensor& kernel);
-void convGradWeight(Tensor& gradWeight, const Tensor& input, const Tensor& gradOutput);
+void convGradInput(Tensor& gradInput, const Tensor& kernel, const Tensor& gradOutput);
+void convGradWeight(Tensor& gradWeight, const Tensor& gradOutput, const Tensor& input);
 
 }

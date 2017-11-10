@@ -1,8 +1,7 @@
 #include <iostream>
-#include <fstream>
-#include <cmath>
+#include <windows.h>
 
-#include "Network.h"
+#include "RNA.h"
 #include "Image.h"
 
 void loadXOR(unsigned _size, rna::DataSet& _data);
@@ -11,12 +10,13 @@ void loadMNIST(unsigned _size, rna::DataSet& _data);
 int main()
 {
     std::string selection = "conv";
-    std::cout << "Select dataset (XOR, MNIST, CONV, VERIF): ";
-//    std::cin >> selection;
+    std::cout << "Select dataset (XOR, MNIST, CONV, TEST): ";
+    std::cin >> selection;
     std::cout << std::endl;
 
     for (auto & c: selection)
         c = toupper(c);
+
 
 
     rna::DataSet dataSet;
@@ -79,18 +79,18 @@ int main()
 
     if ("CONV" == selection)
     {
-        loadMNIST(5, dataSet);
+        loadMNIST(1000, dataSet);
         for (rna::Example& e: dataSet)
             e.input.resize({1, 28, 28});
 
         std::cout << "DB loaded" << std::endl;
 
         {
-            ann.addLayer( new rna::Convolutional(dataSet[0].input.size(), {5, 5}, 4) );
+            ann.addLayer( new rna::Convolutional({5, 5}, {1, 28, 28}, 4) );
             ann.addLayer( new rna::MaxPooling() );
             ann.addLayer( new rna::Tanh() );
 
-            ann.addLayer( new rna::Convolutional({4, 12, 12}, {5, 5}, 12) );
+            ann.addLayer( new rna::Convolutional({5, 5}, {4, 12, 12}, 12) );
             ann.addLayer( new rna::MaxPooling() );
             ann.addLayer( new rna::Tanh() );
 
@@ -107,19 +107,28 @@ int main()
 
         std::cout << "ANN created" << std::endl;
 
-        ann.train(new rna::NLL(), dataSet, 0.01, 0.3, 10000, 500);
+        ann.train(new rna::NLL(), dataSet, 0.01, 0.3, 10000, 100);
 
         ann.saveToFile("Networks/leNet1.rna");
     }
 
-    if ("test" == selection)
+    if ("TEST" == selection)
     {
-        loadMNIST(3000, dataSet);
-        ann.loadFromFile("Networks/mnist2&.rna");
+        loadMNIST(1000, dataSet);
 
-        ann.train(new rna::NLL(), dataSet, 0.001, 0.0, 50000, 500);
-        ann.validate(dataSet);
-        ann.saveToFile("Networks/mnist3.rna");
+        ann.loadFromFile("Networks/leNet1.rna");
+
+        for (unsigned i(0) ; i < 1000 ; i++)
+        {
+            dataSet[i].input.resize({1, 28, 28});
+
+            std::cout << std::endl << std::endl << i << std::endl;
+            std::cout << ann.feedForward(dataSet[i].input) << std::endl;
+            std::cout << ann.feedForward(dataSet[i].input).argmax() << std::endl;
+            std::cout << dataSet[i].output << std::endl;
+
+            displayImage(dataSet[i].input, "Output", 8);
+        }
 
         return 0;
     }
