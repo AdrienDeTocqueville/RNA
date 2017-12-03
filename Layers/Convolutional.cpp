@@ -83,11 +83,11 @@ void Convolutional::zeroParametersGradients()
 
 void Convolutional::updateParameters(double _learningRate, double _inertia)
 {
-    deltaWeight = (1.0 - _inertia) * _learningRate * gradWeight + _inertia * deltaWeight;
-    deltaBias   = (1.0 - _inertia) * _learningRate * gradBias   + _inertia * deltaBias;
+    deltaWeight = _inertia * deltaWeight - _learningRate * gradWeight;
+    deltaBias = _inertia * deltaBias - _learningRate * gradBias;
 
-    weights -= deltaWeight;
-    bias    -= deltaBias;
+    weights += deltaWeight;
+    bias    += deltaBias;
 }
 
 

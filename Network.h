@@ -13,7 +13,18 @@ struct Example
     Tensor output;
 };
 
+struct Transition
+{
+    Tensor state;
+    size_t action;
+    double reward;
+    Tensor nextState;
+
+    bool terminal;
+};
+
 using DataSet = std::vector<Example>;
+using Memory = std::vector<Transition>;
 
 class Layer;
 class LossFunction;
@@ -22,15 +33,22 @@ class Network
 {
     public:
         Network();
+        Network(Network&& _network);
+        Network(const Network& _network);
+
         ~Network();
+
+        Network& operator=(Network _network);
 
         void addLayer(Layer* _layer);
 
         Tensor feedForward(const Tensor& _input);
         void backprop(const Tensor& _input, const Tensor& _gradOutput);
 
-        void zeroParametersGradients();
         void train(LossFunction* _loss, const DataSet& _dataSet, double _learningRate, double _inertia, unsigned _maxEpochs, unsigned _epochsBetweenReports);
+        void QLearn(LossFunction* _loss, Network& target, const Memory& _memory, double _learningRate, double _inertia, unsigned _miniBatchSize, double _discount);
+
+        void zeroParametersGradients();
         void updateParameters(double _learningRate, double _inertia);
 
         void validate(const DataSet& _dataSet);
@@ -40,6 +58,13 @@ class Network
 
     private:
         std::vector<Layer*> layers;
+
+        friend void swap(Network& first, Network& second)
+        {
+            using std::swap;
+
+            swap(first.layers, second.layers);
+        }
 };
 
 }

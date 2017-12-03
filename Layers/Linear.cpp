@@ -1,6 +1,7 @@
 #include "Linear.h"
 
 #include <fstream>
+#include <iostream>
 
 namespace rna
 {
@@ -51,18 +52,43 @@ void Linear::randomize()
 
 Tensor Linear::feedForward(const Tensor& _input)
 {
-    mulmv(output, weights, _input);
-    output += bias;
+    if (_input.nDimensions() == 1)
+    {
+        mulmv(output, weights, _input);
+        output += bias;
+    }
+    else if (_input.nDimensions() == 2)
+    {
+        mulmmt(output, _input, weights);
+
+        for (unsigned i(0); i < output.size(0); i++)
+            for (unsigned j(0); j < output.size(1); j++)
+                output(i, j) += bias(j);
+    }
 
     return output;
 }
 
 Tensor Linear::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
-    mulmv(gradInput, weights.getTranspose(), _gradOutput);
+    if (_input.nDimensions() == 1)
+    {
+        mulmv(gradInput, weights.getTranspose(), _gradOutput);
 
-    gradWeight.addOuterProduct(_gradOutput, _input);
-    gradBias += _gradOutput;
+        gradWeight.addOuterProduct(_gradOutput, _input);
+        gradBias += _gradOutput;
+    }
+    else if (_input.nDimensions() == 2)
+    {
+        mulmm(gradInput, _gradOutput, weights);
+
+        Tensor temp; mulmtm(temp, _gradOutput, _input);
+        gradWeight += temp;
+
+        for (unsigned i(0) ; i < _gradOutput.size(0) ; i++)
+            for (unsigned j(0) ; j < _gradOutput.size(1) ; j++)
+                gradBias(j) += _gradOutput(i, j);
+    }
 
     return gradInput;
 }
@@ -75,6 +101,12 @@ void Linear::zeroParametersGradients()
 
 void Linear::updateParameters(double _learningRate, double _inertia)
 {
+//    deltaWeight = _inertia * deltaWeight + _learningRate * gradWeight;
+//    deltaBias = _inertia * deltaBias + _learningRate * gradBias;
+//
+//    weights -= deltaWeight;
+//    bias    -= deltaBias;
+
     deltaWeight = (1.0 - _inertia) * _learningRate * gradWeight + _inertia * deltaWeight;
     deltaBias   = (1.0 - _inertia) * _learningRate * gradBias   + _inertia * deltaBias;
 

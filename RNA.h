@@ -5,7 +5,7 @@
 
 #include "LossFunction.h"
 
-#include "Layers/Layers.h"
+#include "Layers/Layer.h"
 #include "Layers/Linear.h"
 #include "Layers/Reshape.h"
 #include "Layers/MaxPooling.h"

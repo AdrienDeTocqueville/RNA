@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Layers.h"
+#include "Layer.h"
 
 namespace rna
 {
@@ -17,7 +17,7 @@ class Reshape: public Layer
         virtual void saveToFile(std::ofstream& _file) const;
 
     private:
-        Tensor inputShape, outputShape;
+        coords_t inputSize, outputSize;
 };
 
 }

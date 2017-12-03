@@ -7,39 +7,177 @@
 void loadXOR(unsigned _size, rna::DataSet& _data);
 void loadMNIST(unsigned _size, rna::DataSet& _data);
 
+void SARSA();
+void SARSALambda();
+void QLearning();
+
+Tensor gamestate({1}, 4);
+
+bool game(const size_t& action, double& reward, Tensor& nextState, bool v = false)
+{
+    if (action == 0)
+        gamestate(0)--;
+    if (action == 1)
+        gamestate(0)++;
+
+    gamestate(0) = std::min(std::max(0.0, gamestate(0)), 8.0);
+    nextState = gamestate;
+
+
+    if (gamestate(0) == 2)
+    {
+        reward = -1;
+    }
+    else if (gamestate(0) == 6)
+    {
+        reward = 1;
+    }
+    else
+        reward = 0;
+
+    if (v)
+    std::cout << "State: " << gamestate(0) << std::endl;
+    if (v)
+    std::cout << "Reward: " << reward << std::endl;
+
+    if (gamestate(0) == 2 || gamestate(0) == 6)
+    {
+    if (v)
+        std::cout << "Terminal" << std::endl;
+        gamestate(0) = 4;
+        return true;
+    }
+
+    return false;
+}
+
 int main()
 {
-    std::string selection = "conv";
-    std::cout << "Select dataset (XOR, MNIST, CONV, TEST): ";
+    std::string selection = "n";
+    std::cout << "Select network (QL, DQN, XOR, MNIST, CONV, TEST): ";
     std::cin >> selection;
     std::cout << std::endl;
 
-    for (auto & c: selection)
+    for (auto& c: selection)
         c = toupper(c);
-
-
 
     rna::DataSet dataSet;
     rna::Network ann;
 
-    if ("n" == selection)
+    if ("QL" == selection)
     {
-        loadMNIST(1000, dataSet);
+        QLearning();
+    }
 
-        ann.loadFromFile("Networks/mnist.rna");
+    if ("DQN" == selection)
+    {
+        unsigned numActions = 2;
+
+        unsigned episodes = 10000;
+        unsigned memSize = 10000;
+        unsigned batchSize = 64;
+        unsigned targetUpdate = 1000;
+        double discount = 0.99;
+
+        double epsilonI = 1.0, epsilonF = 0.1;
+
+        unsigned HU = 10;
+        ann.addLayer( new rna::Linear(1, HU) );
+        ann.addLayer( new rna::Tanh() );
+        ann.addLayer( new rna::Linear(HU, 2) );
+        ann.addLayer( new rna::Tanh() );
+
+        rna::Network target(ann);
+
+        rna::Memory memory;
+        int step = 0;
+
+        for (unsigned i(0); i < episodes; i++)
+        {
+            bool terminate = false;
+            Tensor state = gamestate, nextState;
+            size_t action;
+            double reward;
+
+            while (!terminate)
+            {
+                double epsilon = std::max(0.0, epsilonI - step*(epsilonI-epsilonF)/(double)episodes);
+
+                if (Random::nextDouble() < epsilon)
+                    action = Random::nextInt(0, numActions);
+                else
+                    action = ann.feedForward(state).argmax()[0];
+
+                terminate = game(action, reward, nextState);
+
+                if (memory.size() < memSize)
+                    memory.push_back({state, action, reward, nextState, terminate});
+
+                else
+                    memory[step%memSize] = {state, action, reward, nextState, terminate};
+
+                ann.QLearn(new rna::MSE(), target, memory, batchSize, 0.01, 0.9, discount);
+                state = nextState;
+
+                step++;
+                if (step % targetUpdate == 0)
+                    target = rna::Network(ann);
+            }
+        }
+
+//        for (unsigned i(0); i < 9; i++)
+//        {
+//            Tensor input = Vector({(double)i});
+//            Tensor output = ann.feedForward(input); output.round(2);
+//            std::cout << input << ": " << output << std::endl;
+//        }
+    }
+
+    if ("N" == selection)
+    {
+        loadMNIST(10000, dataSet);
+
+        ann.loadFromFile("Networks/mnist1.rna");
+
+        for (unsigned i(0) ; i < 2000 ; i++)
+        {
+            i = Random::nextInt(1000, 2000);
+
+            std::cout << std::endl << std::endl << i << std::endl;
+            std::cout << ann.feedForward(dataSet[i].input) << std::endl;
+            std::cout << ann.feedForward(dataSet[i].input).argmax() << std::endl;
+            std::cout << dataSet[i].output << std::endl;
+
+            displayImage(dataSet[i].input, "Output", 8);
+        }
+
+//        ann.train(new rna::NLL(), dataSet, 0.001, 0.9, 10000, 500);
+//        ann.saveToFile("Networks/mnist1.rna");
+
+//        rna::Reshape r({28*28});
+//
+//        std::cout << ann.feedForward(r.feedForward(dataSet[1].input)) << std::endl;
+//        std::cout << ann.feedForward(r.feedForward(dataSet[1].input)).argmax() << std::endl;
+//        std::cout << dataSet[1].output << std::endl;
+//
+//        std::cout << ann.feedForward(r.feedForward(dataSet[2].input)) << std::endl;
+//        std::cout << ann.feedForward(r.feedForward(dataSet[2].input)).argmax() << std::endl;
+//        std::cout << dataSet[2].output << std::endl;
+//
+//        std::cout << ann.feedForward(Matrix({r.feedForward(dataSet[2].input), r.feedForward(dataSet[1].input)})) << std::endl;
     }
 
     if ("XOR" == selection)
     {
         loadXOR(100, dataSet);
 
-        unsigned HU = 3;
+        unsigned HU = 5;
         ann.addLayer( new rna::Linear(2, HU) );
-        ann.addLayer( new rna::ReLU() );
+        ann.addLayer( new rna::Tanh() );
         ann.addLayer( new rna::Linear(HU, 1) );
         ann.addLayer( new rna::Tanh() );
 
-        ann.train(new rna::MSE(), dataSet, 0.001, 0.5, 5000, 500);
+        ann.train(new rna::MSE(), dataSet, 0.001, 0.9, 5000, 500);
         ann.saveToFile("Networks/xor.rna");
 
         std::cout << ann.feedForward(Vector({-0.5, -0.5})) << std::endl; // -1.0
@@ -47,34 +185,30 @@ int main()
         std::cout << ann.feedForward(Vector({0.5, -0.5})) << std::endl; // 1.0
         std::cout << ann.feedForward(Vector({0.5, 0.5})) << std::endl << std::endl; // -1.0
 
+        std::cout << ann.feedForward(Matrix({{-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5}})) << std::endl << std::endl; // -1.0
+
         return 0;
     }
 
     if ("MNIST" == selection)
     {
-        loadMNIST(3000, dataSet);
+        loadMNIST(10000, dataSet);
 
-        for (unsigned i(0) ; i < 2 ; i++)
-        {
-            std::cout << dataSet[i].output << std::endl;
-            displayImage(dataSet[i].input, "Image", 8);
-        }
-
-        ann.addLayer( new rna::Reshape({28*28}) );
-        ann.addLayer( new rna::Linear(28*28, 300) );
+//        ann.addLayer( new rna::Reshape({28*28}) );
+        ann.addLayer( new rna::Linear(28*28, 500) );
         ann.addLayer( new rna::Tanh() );
-        ann.addLayer( new rna::Linear(300, 10) );
+        ann.addLayer( new rna::Linear(500, 10) );
         ann.addLayer( new rna::Tanh() );
         ann.addLayer( new rna::LogSoftMax() );
 
 
-        ann.train(new rna::NLL(), dataSet, 0.01, 0.0, 10000, 100);
+        ann.train(new rna::NLL(), dataSet, 0.01, 0.0, 1000, 100);
         ann.validate(dataSet);
         ann.saveToFile("Networks/mnist1.rna");
 
-        ann.train(new rna::NLL(), dataSet, 0.0005, 0.0, 50000, 500);
-        ann.validate(dataSet);
-        ann.saveToFile("Networks/mnist2.rna");
+//        ann.train(new rna::NLL(), dataSet, 0.0005, 0.9, 50000, 10000);
+//        ann.validate(dataSet);
+//        ann.saveToFile("Networks/mnist2.rna");
     }
 
     if ("CONV" == selection)
@@ -86,11 +220,11 @@ int main()
         std::cout << "DB loaded" << std::endl;
 
         {
-            ann.addLayer( new rna::Convolutional({5, 5}, {1, 28, 28}, 4) );
+            ann.addLayer( new rna::Convolutional({1, 28, 28}, {5, 5}, 4) );
             ann.addLayer( new rna::MaxPooling() );
             ann.addLayer( new rna::Tanh() );
 
-            ann.addLayer( new rna::Convolutional({5, 5}, {4, 12, 12}, 12) );
+            ann.addLayer( new rna::Convolutional({4, 12, 12}, {5, 5}, 12) );
             ann.addLayer( new rna::MaxPooling() );
             ann.addLayer( new rna::Tanh() );
 
@@ -114,12 +248,13 @@ int main()
 
     if ("TEST" == selection)
     {
-        loadMNIST(1000, dataSet);
+        loadMNIST(2000, dataSet);
 
         ann.loadFromFile("Networks/leNet1.rna");
 
-        for (unsigned i(0) ; i < 1000 ; i++)
+        for (unsigned i(0) ; i < 2000 ; i++)
         {
+            i = Random::nextInt(1000, 2000);
             dataSet[i].input.resize({1, 28, 28});
 
             std::cout << std::endl << std::endl << i << std::endl;
@@ -163,4 +298,198 @@ void loadMNIST(unsigned _size, rna::DataSet& _data) // 60000 examples
 
     LoadMNISTImages(_data);
     LoadMNISTLabels(_data);
+}
+
+void SARSA()
+{
+    double Q[9][2] = {0.0};
+
+    unsigned episodes = 10000;
+    double discount = 0.99;
+
+    double epsilonI = 1.0, epsilonF = 0.5;
+    int step = 0;
+
+    for (unsigned episode(0); episode < episodes; episode++)
+    {
+        bool terminate = false;
+        Tensor state = gamestate, nextState;
+        size_t action = 1;
+        double reward;
+
+        while (!terminate)
+        {
+            double epsilon = std::max(0.0, epsilonI - step*(epsilonI-epsilonF)*0.0001);
+            double alpha = 0.01;
+
+            if (Random::nextDouble() < epsilon)
+                action = Random::nextInt(0, 2);
+
+            else
+                if (Q[(int)state(0)][0] > Q[(int)state(0)][1])
+                    action = 0;
+            else
+                action = 1;
+
+            terminate = game(action, reward, nextState);
+
+            size_t action2 = 1;
+            if (Q[(int)nextState(0)][0] > Q[(int)nextState(0)][1])
+                    action2 = 0;
+
+            Q[(int)state(0)][action] += alpha * (reward + discount*Q[(int)nextState(0)][action2] - Q[(int)state(0)][action]);
+            state = nextState;
+
+            step++;
+        }
+    }
+
+    for (unsigned i(0); i < 9; i++)
+    {
+        for (unsigned j(0); j < 2; j++)
+        {
+            std::cout << Q[i][j] << "  ";
+        }
+        std::cout << std::endl;
+    }
+}
+
+void SARSALambda()
+{
+    double lambda = 0.9;
+
+    double Q[9][2] = {0.0};
+    double E[9][2] = {0.0};
+
+    unsigned episodes = 10000;
+    double discount = 0.99;
+
+    double epsilonI = 1.0, epsilonF = 0.5;
+    int step = 0;
+
+    for (unsigned episode(0); episode < episodes; episode++)
+    {
+        bool terminate = false;
+        Tensor state = gamestate, nextState;
+        size_t action = 0;
+        double reward;
+
+        while (!terminate)
+        {
+            terminate = game(action, reward, nextState);
+
+            double epsilon = std::max(0.0, epsilonI - step*(epsilonI-epsilonF)/(double)episodes);
+            double alpha = 0.001;
+
+            size_t action2;
+            if (Random::nextDouble() < epsilon)
+                action2 = Random::nextInt(0, 2);
+
+            else
+                if (Q[(int)nextState(0)][0] > Q[(int)nextState(0)][1])
+                    action2 = 0;
+            else
+                action2 = 1;
+
+            double delta = reward + discount*Q[(int)nextState(0)][action2] - Q[(int)state(0)][action];
+            E[(int)state(0)][action]++;
+
+            for (unsigned i(0); i < 9; i++)
+            {
+                for (unsigned j(0); j < 2; j++)
+                {
+                    Q[(int)state(0)][action] += alpha * delta * E[(int)state(0)][action];
+                    E[(int)state(0)][action] *= discount * lambda;
+                }
+            }
+
+            state = nextState;
+            action = action2;
+
+            step++;
+        }
+    }
+
+    for (unsigned i(0); i < 9; i++)
+    {
+        for (unsigned j(0); j < 2; j++)
+        {
+            std::cout << Q[i][j] << "  ";
+        }
+        std::cout << std::endl;
+    }
+}
+
+void QLearning()
+{
+    rna::DataSet dataSet;
+    rna::Network ann;
+
+    unsigned HU = 10;
+    ann.addLayer( new rna::Linear(1, HU) );
+    ann.addLayer( new rna::Tanh() );
+    ann.addLayer( new rna::Linear(HU, 2) );
+    ann.addLayer( new rna::Tanh() );
+
+
+    Tensor Q({9, 2}, 0.0);
+
+    unsigned episodes = 10000;
+    double discount = 0.99;
+
+    double epsilonI = 1.0, epsilonF = 0.1;
+    int step = 0;
+
+    for (unsigned episode(0); episode < episodes; episode++)
+    {
+        bool terminate = false;
+        Tensor state = gamestate, nextState;
+        size_t action;
+        double reward;
+
+        while (!terminate)
+        {
+            double epsilon = std::max(0.0, epsilonI - step*(epsilonI-epsilonF)/(double)episodes);
+            double alpha = 0.01;
+
+            if (Random::nextDouble() < epsilon)
+                action = Random::nextInt(0, 2);
+
+            else
+                if (Q(state(0), 0) > Q(state(0), 1))
+                    action = 0;
+            else
+                action = 1;
+
+            terminate = game(action, reward, nextState);
+
+            size_t action2 = 1;
+            if (Q(nextState(0), 0) > Q(nextState(0), 1))
+                    action2 = 0;
+
+            Q(state(0), action) += alpha * (reward + discount*Q(nextState(0), action2) - Q(state(0), action));
+            state = nextState;
+
+            step++;
+        }
+    }
+
+    for (unsigned i(0); i < 9; i++)
+    {
+        rna::Example e;
+        e.input = Vector({(double)i});
+        e.output = Vector({Q(i, 0), Q(i, 1)});
+
+        dataSet.push_back(e);
+
+        std::cout << dataSet[i].input << ": " << dataSet[i].output << std::endl;
+    }
+
+    ann.train(new rna::MSE(), dataSet, 0.001, 0.9, 5000, 5000);
+
+    for (unsigned i(0); i < 9; i++)
+    {
+        Tensor output = ann.feedForward(Vector({(double)i})); output.round(2);
+        std::cout << Vector({(double)i}) << ": " << output << std::endl;
+    }
 }

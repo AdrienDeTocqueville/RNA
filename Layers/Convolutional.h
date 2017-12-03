@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Layers.h"
+#include "Layer.h"
 
 namespace rna
 {
@@ -8,7 +8,7 @@ namespace rna
 class Convolutional: public Layer
 {
     public:
-        Convolutional(coords_t kernelDimensions = {3, 3}, coords_t inputDimensions = {3, 32, 32}, size_t _outputChannels = 3);
+        Convolutional(coords_t inputDimensions = {3, 32, 32}, coords_t kernelDimensions = {3, 3}, size_t _outputChannels = 3);
         Convolutional(std::ifstream& _file);
 
         void randomize();

@@ -29,7 +29,8 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
-					<Add option="-O2" />
+					<Add option="-O3" />
+					<Add option="-std=c++11" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -42,7 +43,7 @@
 		<Compiler>
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
-			<Add directory="C:/Users/Otarie/Libs/SFML/include" />
+			<Add directory="D:/Adrien/PROG/Libs/SFML-2.4.2/include" />
 		</Compiler>
 		<Linker>
 			<Add library="mingw32" />
@@ -50,14 +51,14 @@
 			<Add library="gdi32" />
 			<Add library="winmm" />
 			<Add library="dxguid" />
-			<Add directory="C:/Users/Otarie/Libs/SFML/lib" />
+			<Add directory="D:/Adrien/PROG/Libs/SFML-2.4.2/lib" />
 		</Linker>
 		<Unit filename="Image.cpp" />
 		<Unit filename="Image.h" />
 		<Unit filename="Layers/Convolutional.cpp" />
 		<Unit filename="Layers/Convolutional.h" />
-		<Unit filename="Layers/Layers.cpp" />
-		<Unit filename="Layers/Layers.h" />
+		<Unit filename="Layers/Layer.cpp" />
+		<Unit filename="Layers/Layer.h" />
 		<Unit filename="Layers/Linear.cpp" />
 		<Unit filename="Layers/Linear.h" />
 		<Unit filename="Layers/LogSoftMax.cpp" />
@@ -71,6 +72,8 @@
 		<Unit filename="Network.cpp" />
 		<Unit filename="Network.h" />
 		<Unit filename="RNA.h" />
+		<Unit filename="Random.cpp" />
+		<Unit filename="Random.h" />
 		<Unit filename="Tensor.cpp" />
 		<Unit filename="Tensor.h" />
 		<Unit filename="main.cpp" />

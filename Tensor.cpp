@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cmath>
 
+
 std::ostream& operator<<(std::ostream& os, const coords_t& coords)
 {
     if (!coords.size())
@@ -47,25 +48,20 @@ Tensor Tensor::identityMatrix(size_t _dimension)
 Tensor::Tensor()
 { }
 
+Tensor::Tensor(Tensor&& _tensor)
+{
+    swap(*this, _tensor);
+}
+
 Tensor::Tensor(const Tensor& _tensor):
     dimensions(_tensor.dimensions),
     strides(_tensor.strides),
     values(_tensor.values)
 { }
 
-Tensor::Tensor(const coords_t& _dimensions)
-{
-    resize(_dimensions);
-}
-
 Tensor::Tensor(const coords_t& _dimensions, const value_type& _value)
 {
     resize(_dimensions, _value);
-}
-
-Tensor::Tensor(std::initializer_list<size_t> _dimensions)
-{
-    resize(_dimensions);
 }
 
 Tensor::Tensor(std::initializer_list<size_t> _dimensions, const value_type& _value)
@@ -75,6 +71,14 @@ Tensor::Tensor(std::initializer_list<size_t> _dimensions, const value_type& _val
 
 Tensor::~Tensor()
 { }
+
+Tensor& Tensor::operator=(Tensor _tensor)
+{
+    swap(*this, _tensor);
+
+    return *this;
+}
+
 
 const coords_t& Tensor::size() const
 {
@@ -99,34 +103,6 @@ size_t Tensor::nDimensions() const
 size_t Tensor::nElements() const
 {
     return values.size();
-}
-
-void Tensor::resize(const coords_t& _dimensions)
-{
-    if (dimensions == _dimensions)
-        return;
-
-    if (!_dimensions.size())
-    {
-        dimensions.clear();
-        strides.clear();
-        values.clear();
-    }
-
-    dimensions = _dimensions;
-
-    strides.resize(dimensions.size());
-
-    strides[0] = 1;
-    size_t totSize = dimensions[0];
-
-    for (unsigned i(1) ; i < dimensions.size() ; i++)
-    {
-        totSize *= dimensions[i];
-        strides[i] = strides[i-1] * dimensions[i-1];
-    }
-
-    values.resize(totSize);
 }
 
 void Tensor::resize(const coords_t& _dimensions, const value_type& _value)
@@ -157,16 +133,6 @@ void Tensor::resize(const coords_t& _dimensions, const value_type& _value)
     values.resize(totSize, _value);
 }
 
-void Tensor::resizeAs(const Tensor& _tensor)
-{
-    if (dimensions == _tensor.dimensions)
-        return;
-
-    dimensions = _tensor.dimensions;
-    strides = _tensor.strides;
-    values.resize(_tensor.values.size());
-}
-
 void Tensor::resizeAs(const Tensor& _tensor, const value_type& _value)
 {
     if (dimensions == _tensor.dimensions)
@@ -174,8 +140,6 @@ void Tensor::resizeAs(const Tensor& _tensor, const value_type& _value)
 
     dimensions = _tensor.dimensions;
     strides = _tensor.strides;
-
-    values.clear();
     values.resize(_tensor.values.size(), _value);
 }
 
@@ -183,6 +147,14 @@ void Tensor::fill(value_type _value)
 {
     for (value_type& v: values)
         v = _value;
+}
+
+void Tensor::round(unsigned _decimals)
+{
+    double factor = pow(10, _decimals);
+
+    for (value_type& v: values)
+        v = std::round(v*factor)/factor;
 }
 
 void Tensor::randomize(value_type _min, value_type _max)
@@ -193,7 +165,7 @@ void Tensor::randomize(value_type _min, value_type _max)
     #endif
 
     for (unsigned i(0) ; i < values.size() ; i++)
-        values[i] = dRand(_min, _max);
+        values[i] = Random::nextDouble(_min, _max);
 }
 
 Tensor Tensor::getTranspose() const
@@ -244,22 +216,48 @@ value_type Tensor::length2() const
     return sum;
 }
 
-value_type Tensor::max() const
+value_type& Tensor::max()
 {
     #ifdef TENSOR_SAFE
         if (!values.size())
             std::cout << "Tensor::max() -> empty tensor" << std::endl;
     #endif
 
+    size_t index = 0;
 	value_type maximum = values[0];
 
     for (unsigned i(1) ; i < values.size() ; i++)
     {
         if (values[i] > maximum)
+        {
+            index = i;
             maximum = values[i];
+        }
     }
 
-    return maximum;
+    return values[index];
+}
+
+const value_type& Tensor::max() const
+{
+    #ifdef TENSOR_SAFE
+        if (!values.size())
+            std::cout << "Tensor::max() -> empty tensor" << std::endl;
+    #endif
+
+    size_t index = 0;
+	value_type maximum = values[0];
+
+    for (unsigned i(1) ; i < values.size() ; i++)
+    {
+        if (values[i] > maximum)
+        {
+            index = i;
+            maximum = values[i];
+        }
+    }
+
+    return values[index];
 }
 
 coords_t Tensor::argmax() const
@@ -512,6 +510,48 @@ void mulmm(Tensor& result, const Tensor& a, const Tensor& b)
     }
 }
 
+void mulmtm(Tensor& result, const Tensor& a, const Tensor& b)
+{
+    #ifdef TENSOR_SAFE
+        if (a.size(0) != b.size(0))
+            std::cout << "mulmm -> sizes do not match" << std::endl;
+    #endif
+
+    result.resize({a.size(1), b.size(1)});
+
+    for (unsigned i(0) ; i < a.size(1) ; i++)
+    {
+        for (unsigned j(0) ; j < b.size(1) ; j++)
+        {
+            value_type& s = result(i, j); s = 0.0;
+
+            for (unsigned k(0) ; k < a.size(0) ; k++)
+                s += a(k, i) * b(k, j);
+        }
+    }
+}
+
+void mulmmt(Tensor& result, const Tensor& a, const Tensor& b)
+{
+    #ifdef TENSOR_SAFE
+        if (a.size(1) != b.size(1))
+            std::cout << "mulmm -> sizes do not match" << std::endl;
+    #endif
+
+    result.resize({a.size(0), b.size(0)});
+
+    for (unsigned i(0) ; i < a.size(0) ; i++)
+    {
+        for (unsigned j(0) ; j < b.size(0) ; j++)
+        {
+            value_type& s = result(i, j); s = 0.0;
+
+            for (unsigned k(0) ; k < a.size(1) ; k++)
+                s += a(i, k) * b(j, k);
+        }
+    }
+}
+
 void mulmv(Tensor& result, const Tensor& a, const Tensor& b)
 {
     #ifdef TENSOR_SAFE
@@ -537,12 +577,15 @@ Tensor operator+(const Tensor& a, const Tensor& b)
             std::cout << "operator+ -> sizes do not match" << std::endl;
     #endif
 
-    Tensor result(a);
+    Tensor res;
+    res.values.reserve(a.nElements());
+    res.dimensions = a.dimensions;
+    res.strides = a.strides;
 
     for (unsigned i(0) ; i < a.nElements() ; i++)
-        result[i] += b[i];
+        res.values.push_back(a[i] + b[i]);
 
-    return result;
+    return res;
 }
 
 Tensor operator-(const Tensor& a, const Tensor& b)
@@ -552,22 +595,28 @@ Tensor operator-(const Tensor& a, const Tensor& b)
             std::cout << "operator- -> sizes do not match" << std::endl;
     #endif
 
-    Tensor result(a);
+    Tensor res;
+    res.values.reserve(a.nElements());
+    res.dimensions = a.dimensions;
+    res.strides = a.strides;
 
     for (unsigned i(0) ; i < a.nElements() ; i++)
-        result[i] -= b[i];
+        res.values.push_back(a[i] - b[i]);
 
-    return result;
+    return res;
 }
 
-Tensor operator*(const double& a, const Tensor& b)
+Tensor operator*(const double& s, const Tensor& t)
 {
-    Tensor result(b);
+    Tensor res;
+    res.values.reserve(t.nElements());
+    res.dimensions = t.dimensions;
+    res.strides = t.strides;
 
-    for (unsigned i(0) ; i < b.nElements() ; i++)
-        result[i] *= a;
+    for (unsigned i(0) ; i < t.nElements() ; i++)
+        res.values.push_back(s * t[i]);
 
-    return result;
+    return res;
 }
 
 std::ostream& operator<<(std::ostream& os, const Tensor& t)
@@ -614,6 +663,36 @@ Tensor Vector(std::initializer_list<value_type> _data)
     size_t i(0);
     for (const value_type& e: _data)
         t(i++) = e;
+
+    return t;
+}
+
+Tensor Matrix(std::vector<Tensor>& _data)
+{
+    Tensor t{_data.size(), _data[0].size(0)};
+
+    for (unsigned i(0) ; i < _data.size() ; i++)
+    {
+        for (unsigned j(0); j < _data[i].size(0); j++)
+            t(i, j) = _data[i](j);
+    }
+
+    return t;
+}
+
+Tensor Matrix(std::initializer_list<Tensor> _data)
+{
+    const Tensor& d0(*_data.begin());
+    Tensor t{_data.size(), d0.size(0)};
+
+    size_t i(0);
+    for (auto& r: _data)
+    {
+        for (unsigned j(0); j < t.size(1); j++)
+            t(i, j) = r(j);
+
+        i++;
+    }
 
     return t;
 }

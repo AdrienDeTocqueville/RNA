@@ -7,7 +7,7 @@ namespace rna
 
 Reshape::Reshape(coords_t _dimensions):
     Layer("Reshape"),
-    outputShape{_dimensions}
+    outputSize(_dimensions)
 { }
 
 Reshape::Reshape(std::ifstream& _file):
@@ -16,19 +16,17 @@ Reshape::Reshape(std::ifstream& _file):
     size_t nDimensions;
     _file >> nDimensions;
 
-    coords_t dimensions(nDimensions);
+    outputSize.resize(nDimensions);
     for (unsigned i(0) ; i < nDimensions ; i++)
-        _file >> dimensions[i];
-
-    outputShape.resize(dimensions);
+        _file >> outputSize[i];
 }
 
 Tensor Reshape::feedForward(const Tensor& _input)
 {
-    inputShape.resizeAs(_input);
+    inputSize = _input.size();
 
     output = _input;
-    output.resizeAs(outputShape);
+    output.resize(outputSize);
 
     return output;
 }
@@ -36,7 +34,7 @@ Tensor Reshape::feedForward(const Tensor& _input)
 Tensor Reshape::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
     gradInput = _gradOutput;
-    gradInput.resizeAs(inputShape);
+    gradInput.resize(inputSize);
 
     return gradInput;
 }
@@ -44,10 +42,10 @@ Tensor Reshape::backprop(const Tensor& _input, const Tensor& _gradOutput)
 
 void Reshape::saveToFile(std::ofstream& _file) const
 {
-    _file << outputShape.nDimensions() << std::endl;
+    _file << outputSize.size() << std::endl;
 
-    for (unsigned i(0) ; i < outputShape.nDimensions() ; i++)
-        _file << outputShape.size(i) << " ";
+    for (unsigned i(0) ; i < outputSize.size() ; i++)
+        _file << outputSize[i];
 }
 
 }

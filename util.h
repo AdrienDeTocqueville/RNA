@@ -16,11 +16,3 @@ std::string askFile(std::string _default, std::string _description = "Entrez un 
 std::string getExtension(std::string file);
 
 double clamp(double _min, double _val, double _max);
-
-int iRand(int iMin, int iMax);
-double dRand(double dMin, double dMax);
-
-double sigmoid(double _x);
-
-double dSigmoid(double _x);
-double dtanh(double _x);

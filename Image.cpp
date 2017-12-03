@@ -1,4 +1,5 @@
 #include "Image.h"
+#include "util.h"
 
 #include <iostream>
 #include <fstream>
@@ -132,14 +133,11 @@ void displayImage(const Tensor& _image, std::string _name, unsigned pixelSize)
 
     app.display();
 
-	// Start the game loop
     while (app.isOpen())
     {
-        // Process events
         sf::Event event;
         while (app.waitEvent(event))
         {
-            // Close window : exit
             if (event.type == sf::Event::Closed)
                 app.close();
         }
@@ -192,6 +190,8 @@ void LoadMNISTImages(rna::DataSet& _data)
 //                    example.input(j, i) = temp / 255.0;
                 }
             }
+
+            example.input.resize({28*28});
         }
     }
     else
