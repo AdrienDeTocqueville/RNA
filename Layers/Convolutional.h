@@ -13,8 +13,8 @@ class Convolutional: public Layer
 
         void randomize();
 
-        virtual Tensor feedForward(const Tensor& _input);
-        virtual Tensor backprop(const Tensor& _input, const Tensor& _gradOutput);
+        virtual const Tensor& feedForward(const Tensor& _input);
+        virtual const Tensor& backprop(const Tensor& _input, const Tensor& _gradOutput);
 
         virtual void zeroParametersGradients();
         virtual void updateParameters(double _learningRate, double _inertia);

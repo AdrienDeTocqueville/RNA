@@ -18,8 +18,8 @@ class Layer
         Layer(std::string _type): type(_type) {}
         virtual ~Layer() {}
 
-        virtual Tensor feedForward(const Tensor& _input) = 0;
-        virtual Tensor backprop(const Tensor& _input, const Tensor& _gradOutput) = 0;
+        virtual const Tensor& feedForward(const Tensor& _input) = 0;
+        virtual const Tensor& backprop(const Tensor& _input, const Tensor& _gradOutput) = 0;
 
         virtual void zeroParametersGradients() {}
         virtual void updateParameters(double _learningRate, double _inertia) {}
@@ -41,8 +41,8 @@ class Tanh: public Layer
     public:
         Tanh(): Layer("Tanh") {}
 
-        virtual Tensor feedForward(const Tensor& _input);
-        virtual Tensor backprop(const Tensor& _input, const Tensor& _gradOutput);
+        virtual const Tensor& feedForward(const Tensor& _input);
+        virtual const Tensor& backprop(const Tensor& _input, const Tensor& _gradOutput);
 };
 
 class ReLU: public Layer
@@ -50,8 +50,8 @@ class ReLU: public Layer
     public:
         ReLU(): Layer("ReLU") {}
 
-        virtual Tensor feedForward(const Tensor& _input);
-        virtual Tensor backprop(const Tensor& _input, const Tensor& _gradOutput);
+        virtual const Tensor& feedForward(const Tensor& _input);
+        virtual const Tensor& backprop(const Tensor& _input, const Tensor& _gradOutput);
 };
 
 

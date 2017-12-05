@@ -10,7 +10,7 @@ double MSE::getLoss(const Tensor& _estimation, const Tensor& _target)
         return (_estimation - _target).length2();
 
     else
-        return (_estimation - _target).length2() / _estimation.size(0);
+        return (_estimation - _target).length2();
 }
 
 Tensor MSE::getGradient(const Tensor& _estimation, const Tensor& _target)

@@ -57,7 +57,7 @@ void Convolutional::randomize()
     bias.randomize(-1.0, 1.0);
 }
 
-Tensor Convolutional::feedForward(const Tensor& _input)
+const Tensor& Convolutional::feedForward(const Tensor& _input)
 {
     convolve(output, weights, _input);
     output += bias;
@@ -65,7 +65,7 @@ Tensor Convolutional::feedForward(const Tensor& _input)
     return output;
 }
 
-Tensor Convolutional::backprop(const Tensor& _input, const Tensor& _gradOutput)
+const Tensor& Convolutional::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
     convGradInput(gradInput, weights, _gradOutput);
 
@@ -155,7 +155,7 @@ void convGradInput(Tensor& gradInput, const Tensor& kernel, const Tensor& gradOu
                         unsigned ii = i-kernel.size(2)+1 +u;
                         unsigned jj = j-kernel.size(3)+1 +v;
 
-                        if (ii >= 0 && ii < gradOutput.size(1) && jj >= 0 && jj < gradOutput.size(2))
+                        if (ii < gradOutput.size(1) && jj < gradOutput.size(2))
                         {
                             for (unsigned c(0) ; c < gradOutput.size(0) ; c++)
                                 gradInput(k, i, j) += kernel({c, k, u, v}) * gradOutput(c, ii, jj);

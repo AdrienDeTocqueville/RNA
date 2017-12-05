@@ -42,6 +42,13 @@ class Network
 
         void addLayer(Layer* _layer);
 
+//        no matching function for call to 'rna::Network::add(<brace-enclosed initializer list>)'|
+//        template<typename T, typename... Args>
+//        void add(Args&&... args)
+//        {
+//            layers.push_back(new T(args...));
+//        }
+
         Tensor feedForward(const Tensor& _input);
         void backprop(const Tensor& _input, const Tensor& _gradOutput);
 

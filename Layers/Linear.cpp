@@ -50,7 +50,7 @@ void Linear::randomize()
     bias.randomize(-1.0, 1.0);
 }
 
-Tensor Linear::feedForward(const Tensor& _input)
+const Tensor& Linear::feedForward(const Tensor& _input)
 {
     if (_input.nDimensions() == 1)
     {
@@ -69,7 +69,7 @@ Tensor Linear::feedForward(const Tensor& _input)
     return output;
 }
 
-Tensor Linear::backprop(const Tensor& _input, const Tensor& _gradOutput)
+const Tensor& Linear::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
     if (_input.nDimensions() == 1)
     {

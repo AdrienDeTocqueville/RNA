@@ -1,5 +1,10 @@
-#ifndef RNA_H_INCLUDED
-#define RNA_H_INCLUDED
+#pragma once
+
+// TODO
+// feedforward return ref
+// better backprop gradinput return
+// network.addlayer template
+// inertia
 
 #include "Network.h"
 
@@ -11,5 +16,3 @@
 #include "Layers/MaxPooling.h"
 #include "Layers/LogSoftMax.h"
 #include "Layers/Convolutional.h"
-
-#endif // RNA_H_INCLUDED

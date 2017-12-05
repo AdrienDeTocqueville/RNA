@@ -5,7 +5,7 @@
 namespace rna
 {
 
-Tensor LogSoftMax::feedForward(const Tensor& _input)
+const Tensor& LogSoftMax::feedForward(const Tensor& _input)
 {
     output.resizeAs(_input);
 
@@ -45,7 +45,7 @@ Tensor LogSoftMax::feedForward(const Tensor& _input)
     return output;
 }
 
-Tensor LogSoftMax::backprop(const Tensor& _input, const Tensor& _gradOutput)
+const Tensor& LogSoftMax::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
     gradInput.resizeAs(_input);
 

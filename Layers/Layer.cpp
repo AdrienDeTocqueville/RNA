@@ -23,7 +23,7 @@ double dtanh(double _x)
 namespace rna
 {
 
-Tensor Tanh::feedForward(const Tensor& _input)
+const Tensor& Tanh::feedForward(const Tensor& _input)
 {
     output.resizeAs(_input);
 
@@ -33,7 +33,7 @@ Tensor Tanh::feedForward(const Tensor& _input)
     return output;
 }
 
-Tensor Tanh::backprop(const Tensor& _input, const Tensor& _gradOutput)
+const Tensor& Tanh::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
     gradInput.resizeAs(_input);
 
@@ -43,7 +43,7 @@ Tensor Tanh::backprop(const Tensor& _input, const Tensor& _gradOutput)
     return gradInput;
 }
 
-Tensor ReLU::feedForward(const Tensor& _input)
+const Tensor& ReLU::feedForward(const Tensor& _input)
 {
     output.resizeAs(_input);
 
@@ -53,7 +53,7 @@ Tensor ReLU::feedForward(const Tensor& _input)
     return output;
 }
 
-Tensor ReLU::backprop(const Tensor& _input, const Tensor& _gradOutput)
+const Tensor& ReLU::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
     gradInput.resizeAs(_input);
 

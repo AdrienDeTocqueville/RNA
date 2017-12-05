@@ -92,16 +92,18 @@ Tensor Network::feedForward(const Tensor& _input)
 
 void Network::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
-    Tensor gradient = _gradOutput;
+    layers.back()->backprop(layers[layers.size()-2]->output, _gradOutput);
 
-    for (unsigned l(layers.size()-1) ; l >= 1 ; l--)
-        gradient = layers[l]->backprop(layers[l-1]->output, gradient);
+    for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
+        layers[l]->backprop(layers[l-1]->output, layers[l+1]->gradInput);
 
-    layers[0]->backprop(_input, gradient);
+    layers[0]->backprop(_input, layers[1]->gradInput);
 }
 
 void Network::train(LossFunction* _loss, const DataSet& _dataSet, double _learningRate, double _inertia, unsigned _maxEpochs, unsigned _epochsBetweenReports)
 {
+    auto debut = time(NULL);
+
     const static unsigned miniBatchSize = 32;
 
     unsigned epoch = 0;
@@ -110,35 +112,35 @@ void Network::train(LossFunction* _loss, const DataSet& _dataSet, double _learni
     _learningRate = std::max(_learningRate, 0.0);
     _inertia = std::min(std::max(0.0, _inertia), 1.0);
 
+    std::vector<Tensor> batchI(miniBatchSize), batchO(miniBatchSize);
+
     do
     {
-        std::vector<Tensor> batchI, batchO;
-
         zeroParametersGradients();
         for (unsigned i(0) ; i < miniBatchSize ; ++i)
         {
             const Example& example = Random::element(_dataSet);
 
-            batchI.push_back(example.input);
-            batchO.push_back(example.output);
-        }
-
-        Tensor batchInput = Matrix( batchI );
-        Tensor batchOutput = Matrix( batchO );
-
-        Tensor output = feedForward( batchInput );
-
-        error += _loss->getLoss(output, batchOutput);
-        Tensor gradient = _loss->getGradient(output, batchOutput);
-        backprop(batchInput, gradient);
-
-//            Tensor output = feedForward( example.input );
-//
-//            error += _loss->getLoss(output, example.output);
-//            Tensor gradient = _loss->getGradient(output, example.output);
-//
-//            backprop(example.input, gradient);
+//            batchI[i] = example.input;
+//            batchO[i] = example.output;
 //        }
+//
+//        Tensor batchInput = Matrix( batchI );
+//        Tensor batchOutput = Matrix( batchO );
+//
+//        Tensor output = feedForward( batchInput );
+//
+//        error += _loss->getLoss(output, batchOutput);
+//        Tensor gradient = _loss->getGradient(output, batchOutput);
+//        backprop(batchInput, gradient);
+
+            Tensor output = feedForward( example.input );
+
+            error += _loss->getLoss(output, example.output);
+            Tensor gradient = _loss->getGradient(output, example.output);
+
+            backprop(example.input, gradient);
+        }
 
         updateParameters(_learningRate, _inertia);
 
@@ -157,6 +159,8 @@ void Network::train(LossFunction* _loss, const DataSet& _dataSet, double _learni
     while (epoch != _maxEpochs);
 
     delete _loss;
+
+    std::cout << "Temps: " << time(NULL)-debut << std::endl;
 }
 
 void Network::QLearn(LossFunction* _loss, Network& target, const Memory& _memory, double _learningRate, double _inertia, unsigned _miniBatchSize, double _discount)
@@ -226,7 +230,6 @@ bool Network::saveToFile(std::string _file) const
 
     for (const Layer* layer: layers)
     {
-        file << layer->type << std::endl;
         layer->saveToFile(file);
 
         file << std::endl << std::endl;

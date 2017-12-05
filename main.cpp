@@ -1,4 +1,5 @@
 #include <iostream>
+#include <ctime>
 #include <windows.h>
 
 #include "RNA.h"
@@ -53,9 +54,9 @@ bool game(const size_t& action, double& reward, Tensor& nextState, bool v = fals
 
 int main()
 {
-    std::string selection = "n";
+    std::string selection = "MNIST";
     std::cout << "Select network (QL, DQN, XOR, MNIST, CONV, TEST): ";
-    std::cin >> selection;
+//    std::cin >> selection;
     std::cout << std::endl;
 
     for (auto& c: selection)
@@ -192,7 +193,8 @@ int main()
 
     if ("MNIST" == selection)
     {
-        loadMNIST(10000, dataSet);
+        loadMNIST(1000, dataSet);
+        std::cout << "Loaded" << std::endl;
 
 //        ann.addLayer( new rna::Reshape({28*28}) );
         ann.addLayer( new rna::Linear(28*28, 500) );
@@ -201,8 +203,10 @@ int main()
         ann.addLayer( new rna::Tanh() );
         ann.addLayer( new rna::LogSoftMax() );
 
+        std::cout << "Starting training" << std::endl;
 
         ann.train(new rna::NLL(), dataSet, 0.01, 0.0, 1000, 100);
+
         ann.validate(dataSet);
         ann.saveToFile("Networks/mnist1.rna");
 

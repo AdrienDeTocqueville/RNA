@@ -21,20 +21,18 @@ Reshape::Reshape(std::ifstream& _file):
         _file >> outputSize[i];
 }
 
-Tensor Reshape::feedForward(const Tensor& _input)
+const Tensor& Reshape::feedForward(const Tensor& _input)
 {
-    inputSize = _input.size();
-
     output = _input;
     output.resize(outputSize);
 
     return output;
 }
 
-Tensor Reshape::backprop(const Tensor& _input, const Tensor& _gradOutput)
+const Tensor& Reshape::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
     gradInput = _gradOutput;
-    gradInput.resize(inputSize);
+    gradInput.resizeAs(_input);
 
     return gradInput;
 }
