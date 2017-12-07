@@ -4,6 +4,9 @@
 
 #include "RNA.h"
 #include "Image.h"
+#include "Utility/Random.h"
+
+bool envStep(const size_t& action, double& reward, Tensor& nextState, bool v = false);
 
 void loadXOR(unsigned _size, rna::DataSet& _data);
 void loadMNIST(unsigned _size, rna::DataSet& _data);
@@ -14,48 +17,10 @@ void QLearning();
 
 Tensor gamestate({1}, 4);
 
-bool game(const size_t& action, double& reward, Tensor& nextState, bool v = false)
-{
-    if (action == 0)
-        gamestate(0)--;
-    if (action == 1)
-        gamestate(0)++;
-
-    gamestate(0) = std::min(std::max(0.0, gamestate(0)), 8.0);
-    nextState = gamestate;
-
-
-    if (gamestate(0) == 2)
-    {
-        reward = -1;
-    }
-    else if (gamestate(0) == 6)
-    {
-        reward = 1;
-    }
-    else
-        reward = 0;
-
-    if (v)
-    std::cout << "State: " << gamestate(0) << std::endl;
-    if (v)
-    std::cout << "Reward: " << reward << std::endl;
-
-    if (gamestate(0) == 2 || gamestate(0) == 6)
-    {
-    if (v)
-        std::cout << "Terminal" << std::endl;
-        gamestate(0) = 4;
-        return true;
-    }
-
-    return false;
-}
-
 int main()
 {
-    std::string selection = "MNIST";
-    std::cout << "Select network (QL, DQN, XOR, MNIST, CONV, TEST): ";
+    std::string selection = "GPU";
+    std::cout << "Select network (GPU, QL, DQN, XOR, MNIST, CONV, TEST): ";
 //    std::cin >> selection;
     std::cout << std::endl;
 
@@ -109,7 +74,7 @@ int main()
                 else
                     action = ann.feedForward(state).argmax()[0];
 
-                terminate = game(action, reward, nextState);
+                terminate = envStep(action, reward, nextState);
 
                 if (memory.size() < memSize)
                     memory.push_back({state, action, reward, nextState, terminate});
@@ -209,10 +174,21 @@ int main()
 
         ann.validate(dataSet);
         ann.saveToFile("Networks/mnist1.rna");
+    }
 
-//        ann.train(new rna::NLL(), dataSet, 0.0005, 0.9, 50000, 10000);
-//        ann.validate(dataSet);
-//        ann.saveToFile("Networks/mnist2.rna");
+    if ("GPU" == selection)
+    {
+        loadMNIST(1000, dataSet);
+
+        ann.addLayer( new rna::Linear(28*28, 500) );
+        ann.addLayer( new rna::Tanh() );
+        ann.addLayer( new rna::Linear(500, 10) );
+        ann.addLayer( new rna::Tanh() );
+        ann.addLayer( new rna::LogSoftMax() );
+
+        ann.toGPU();
+
+        ann.GPUtrain(new rna::NLL(), dataSet, 0.01, 0.0, 1000, 100, 6);
     }
 
     if ("CONV" == selection)
@@ -275,6 +251,44 @@ int main()
     return 0;
 }
 
+bool envStep(const size_t& action, double& reward, Tensor& nextState, bool v)
+{
+    if (action == 0)
+        gamestate(0)--;
+    if (action == 1)
+        gamestate(0)++;
+
+    gamestate(0) = std::min(std::max(Tensor::value_type(0.0), gamestate(0)), Tensor::value_type(8.0));
+    nextState = gamestate;
+
+
+    if (gamestate(0) == 2)
+    {
+        reward = -1;
+    }
+    else if (gamestate(0) == 6)
+    {
+        reward = 1;
+    }
+    else
+        reward = 0;
+
+    if (v)
+    std::cout << "State: " << gamestate(0) << std::endl;
+    if (v)
+    std::cout << "Reward: " << reward << std::endl;
+
+    if (gamestate(0) == 2 || gamestate(0) == 6)
+    {
+    if (v)
+        std::cout << "Terminal" << std::endl;
+        gamestate(0) = 4;
+        return true;
+    }
+
+    return false;
+}
+
 void loadXOR(unsigned _size, rna::DataSet& _data)
 {
     _data.clear();
@@ -335,7 +349,7 @@ void SARSA()
             else
                 action = 1;
 
-            terminate = game(action, reward, nextState);
+            terminate = envStep(action, reward, nextState);
 
             size_t action2 = 1;
             if (Q[(int)nextState(0)][0] > Q[(int)nextState(0)][1])
@@ -380,7 +394,7 @@ void SARSALambda()
 
         while (!terminate)
         {
-            terminate = game(action, reward, nextState);
+            terminate = envStep(action, reward, nextState);
 
             double epsilon = std::max(0.0, epsilonI - step*(epsilonI-epsilonF)/(double)episodes);
             double alpha = 0.001;
@@ -465,7 +479,7 @@ void QLearning()
             else
                 action = 1;
 
-            terminate = game(action, reward, nextState);
+            terminate = envStep(action, reward, nextState);
 
             size_t action2 = 1;
             if (Q(nextState(0), 0) > Q(nextState(0), 1))
@@ -481,7 +495,7 @@ void QLearning()
     for (unsigned i(0); i < 9; i++)
     {
         rna::Example e;
-        e.input = Vector({(double)i});
+        e.input = Vector({(Tensor::value_type)i});
         e.output = Vector({Q(i, 0), Q(i, 1)});
 
         dataSet.push_back(e);
@@ -493,7 +507,8 @@ void QLearning()
 
     for (unsigned i(0); i < 9; i++)
     {
-        Tensor output = ann.feedForward(Vector({(double)i})); output.round(2);
-        std::cout << Vector({(double)i}) << ": " << output << std::endl;
+        Tensor output = ann.feedForward(Vector({(Tensor::value_type)i})); output.round(2);
+        std::cout << Vector({(Tensor::value_type)i}) << ": " << output << std::endl;
     }
 }
+

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Tensor.h"
 #include "Network.h"
 
 Tensor loadImage(std::string _path);

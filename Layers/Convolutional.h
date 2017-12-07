@@ -17,7 +17,7 @@ class Convolutional: public Layer
         virtual const Tensor& backprop(const Tensor& _input, const Tensor& _gradOutput);
 
         virtual void zeroParametersGradients();
-        virtual void updateParameters(double _learningRate, double _inertia);
+        virtual void updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia);
 
         virtual void saveToFile(std::ofstream& _file) const;
 

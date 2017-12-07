@@ -1,5 +1,5 @@
 #include "Image.h"
-#include "util.h"
+#include "Utility/util.h"
 
 #include <iostream>
 #include <fstream>
@@ -86,7 +86,7 @@ void displayImage(const Tensor& _image, std::string _name, unsigned pixelSize)
 
             if (_image.nDimensions() == 2)
             {
-                double c = _image(i, j);
+                auto c = _image(i, j);
 
 //                c = c * 255.0;
                 c = (c +1.0)*127.5;
@@ -97,7 +97,7 @@ void displayImage(const Tensor& _image, std::string _name, unsigned pixelSize)
             }
             else if (_image.size(0) == 1)
             {
-                double c = _image(0, i, j);
+                auto c = _image(0, i, j);
 
 //                c = c * 255.0;
                 c = (c +1.0)*127.5;
@@ -108,9 +108,9 @@ void displayImage(const Tensor& _image, std::string _name, unsigned pixelSize)
             }
             else if (_image.size(0) == 3)
             {
-                double c1 = _image(0, i, j);
-                double c2 = _image(1, i, j);
-                double c3 = _image(2, i, j);
+                auto c1 = _image(0, i, j);
+                auto c2 = _image(1, i, j);
+                auto c3 = _image(2, i, j);
 
 //                c1 *= 255.0;
 //                c2 *= 255.0;
@@ -219,7 +219,7 @@ void LoadMNISTLabels(rna::DataSet& _data)
 
             unsigned char temp=0;
             file.read((char*)&temp, sizeof(temp));
-            example.output(0) = (double)temp;
+            example.output(0) = (Tensor::value_type)temp;
         }
 
     }

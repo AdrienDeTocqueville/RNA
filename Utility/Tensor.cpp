@@ -3,6 +3,8 @@
 #include <iostream>
 #include <cmath>
 
+#include "Random.h"
+
 
 std::ostream& operator<<(std::ostream& os, const coords_t& coords)
 {
@@ -45,10 +47,12 @@ Tensor Tensor::identityMatrix(size_t _dimension)
     return id;
 }
 
-Tensor::Tensor()
+Tensor::Tensor():
+    buffer(0)
 { }
 
-Tensor::Tensor(Tensor&& _tensor)
+Tensor::Tensor(Tensor&& _tensor):
+    Tensor()
 {
     swap(*this, _tensor);
 }
@@ -56,21 +60,29 @@ Tensor::Tensor(Tensor&& _tensor)
 Tensor::Tensor(const Tensor& _tensor):
     dimensions(_tensor.dimensions),
     strides(_tensor.strides),
-    values(_tensor.values)
-{ }
+    values(_tensor.values),
+    buffer(0)
+{
+    if (_tensor.buffer != 0)
+        toGPUAs(_tensor.buffer);
+}
 
-Tensor::Tensor(const coords_t& _dimensions, const value_type& _value)
+Tensor::Tensor(const coords_t& _dimensions, const value_type& _value):
+    Tensor()
 {
     resize(_dimensions, _value);
 }
 
-Tensor::Tensor(std::initializer_list<size_t> _dimensions, const value_type& _value)
+Tensor::Tensor(std::initializer_list<size_t> _dimensions, const value_type& _value):
+    Tensor()
 {
     resize(_dimensions, _value);
 }
 
 Tensor::~Tensor()
-{ }
+{
+	clReleaseMemObject(buffer);
+}
 
 Tensor& Tensor::operator=(Tensor _tensor)
 {
@@ -79,6 +91,34 @@ Tensor& Tensor::operator=(Tensor _tensor)
     return *this;
 }
 
+
+void Tensor::toGPU(cl_context _context, cl_mem_flags _flags)
+{
+    if (buffer)
+        clReleaseMemObject(buffer);
+
+    cl_int error = CL_SUCCESS;
+
+    if (_flags&CL_MEM_USE_HOST_PTR || _flags&CL_MEM_COPY_HOST_PTR)
+        buffer = clCreateBuffer(_context, _flags, sizeof (float) * nElements(), data(), &error);
+
+    else
+        buffer = clCreateBuffer(_context, _flags, sizeof (float) * nElements(), nullptr, &error);
+
+    if (error != CL_SUCCESS)
+        std::cout << "Unable to create buffer: " << error << std::endl;
+}
+
+void Tensor::toGPUAs(cl_mem _buffer)
+{
+    std::cout << "Warning: copy of gpu tensor is experimental" << std::endl;
+
+    cl_context context; cl_mem_flags flags;
+    clGetMemObjectInfo(_buffer, CL_MEM_CONTEXT, sizeof(cl_context), &context, nullptr);
+    clGetMemObjectInfo(_buffer, CL_MEM_FLAGS, sizeof(cl_mem_flags), &flags, nullptr);
+
+    toGPU(context, flags);
+}
 
 const coords_t& Tensor::size() const
 {
@@ -115,22 +155,25 @@ void Tensor::resize(const coords_t& _dimensions, const value_type& _value)
         dimensions.clear();
         strides.clear();
         values.clear();
+
+        clReleaseMemObject(buffer);
+        buffer = 0;
+
+        return;
     }
 
     dimensions = _dimensions;
 
     strides.resize(dimensions.size());
+    strides.back() = 1;
 
-    strides[0] = 1;
-    size_t totSize = dimensions[0];
+    for (int i(dimensions.size()-2) ; i >= 0 ; i--)
+        strides[i] = strides[i+1] * dimensions[i+1];
 
-    for (unsigned i(1) ; i < dimensions.size() ; i++)
-    {
-        totSize *= dimensions[i];
-        strides[i] = strides[i-1] * dimensions[i-1];
-    }
+    values.resize(dimensions[0]*strides[0], _value);
 
-    values.resize(totSize, _value);
+    if (buffer)
+        toGPUAs(buffer); // Resize OpenCL buffer
 }
 
 void Tensor::resizeAs(const Tensor& _tensor, const value_type& _value)
@@ -141,6 +184,9 @@ void Tensor::resizeAs(const Tensor& _tensor, const value_type& _value)
     dimensions = _tensor.dimensions;
     strides = _tensor.strides;
     values.resize(_tensor.values.size(), _value);
+
+    if (buffer)
+        toGPUAs(buffer); // Resize OpenCL buffer
 }
 
 void Tensor::fill(value_type _value)
@@ -153,7 +199,7 @@ void Tensor::round(unsigned _decimals)
 {
     double factor = pow(10, _decimals);
 
-    for (value_type& v: values)
+    for (Tensor::value_type& v: values)
         v = std::round(v*factor)/factor;
 }
 
@@ -165,7 +211,7 @@ void Tensor::randomize(value_type _min, value_type _max)
     #endif
 
     for (unsigned i(0) ; i < values.size() ; i++)
-        values[i] = Random::nextDouble(_min, _max);
+        values[i] = Random::nextFloat(_min, _max);
 }
 
 Tensor Tensor::getTranspose() const
@@ -201,14 +247,24 @@ size_t Tensor::getIndex(const coords_t&  _indices) const
     return index;
 }
 
-value_type Tensor::length() const
+cl_mem Tensor::getBuffer() const
+{
+    #ifdef TENSOR_SAFE
+        if (buffer == 0)
+            std::cout << "Warning: buffer is not yet created -> call toGPU()" << std::endl;
+    #endif // TENSOR_SAFE
+
+    return buffer;
+}
+
+Tensor::value_type Tensor::length() const
 {
     return sqrt(length2());
 }
 
-value_type Tensor::length2() const
+Tensor::value_type Tensor::length2() const
 {
-    value_type sum = 0.0;
+    Tensor::value_type sum = 0.0;
 
     for (unsigned i(0) ; i < values.size() ; i++)
         sum += values[i]*values[i];
@@ -216,7 +272,7 @@ value_type Tensor::length2() const
     return sum;
 }
 
-value_type& Tensor::max()
+Tensor::value_type& Tensor::max()
 {
     #ifdef TENSOR_SAFE
         if (!values.size())
@@ -238,7 +294,7 @@ value_type& Tensor::max()
     return values[index];
 }
 
-const value_type& Tensor::max() const
+const Tensor::value_type& Tensor::max() const
 {
     #ifdef TENSOR_SAFE
         if (!values.size())
@@ -291,15 +347,12 @@ coords_t Tensor::argmax() const
     return arg;
 }
 
-void Tensor::print(bool _return) const
+Tensor::value_type* Tensor::data()
 {
-    std::cout << *this;
-
-    if (_return)
-        std::cout << std::endl;
+    return values.data();
 }
 
-value_type& Tensor::operator[](size_t  _index)
+Tensor::value_type& Tensor::operator[](size_t  _index)
 {
     #ifdef TENSOR_SAFE
         if (_index >= values.size())
@@ -309,7 +362,7 @@ value_type& Tensor::operator[](size_t  _index)
     return values[_index];
 }
 
-const value_type& Tensor::operator[](size_t _index) const
+const Tensor::value_type& Tensor::operator[](size_t _index) const
 {
     #ifdef TENSOR_SAFE
         if (_index >= values.size())
@@ -319,7 +372,7 @@ const value_type& Tensor::operator[](size_t _index) const
     return values[_index];
 }
 
-value_type& Tensor::operator()(coords_t _indices)
+Tensor::value_type& Tensor::operator()(coords_t _indices)
 {
     #ifdef TENSOR_SAFE
         if (_indices.size() != dimensions.size())
@@ -332,14 +385,14 @@ value_type& Tensor::operator()(coords_t _indices)
         }
     #endif
 
-    size_t index = _indices[0];
-    for (unsigned i(1) ; i < _indices.size() ; i++)
+    size_t index = 0;
+    for (unsigned i(0) ; i < _indices.size() ; i++)
         index += _indices[i] * strides[i];
 
     return values[index];
 }
 
-value_type& Tensor::operator()(size_t i0)
+Tensor::value_type& Tensor::operator()(size_t i0)
 {
     #ifdef TENSOR_SAFE
         return operator()( coords_t{i0} );
@@ -348,25 +401,25 @@ value_type& Tensor::operator()(size_t i0)
     return values[i0];
 }
 
-value_type& Tensor::operator()(size_t i0, size_t i1)
+Tensor::value_type& Tensor::operator()(size_t i0, size_t i1)
 {
     #ifdef TENSOR_SAFE
         return operator()({i0, i1});
     #endif
 
-    return values[i0 + i1*strides[1]];
+    return values[i0*strides[0] + i1];
 }
 
-value_type& Tensor::operator()(size_t i0, size_t i1, size_t i2)
+Tensor::value_type& Tensor::operator()(size_t i0, size_t i1, size_t i2)
 {
     #ifdef TENSOR_SAFE
         return operator()({i0, i1, i2});
     #endif
 
-    return values[i0 + i1*strides[1] + i2*strides[2]];
+    return values[i0*strides[0] + i1*strides[1] + i2];
 }
 
-const value_type& Tensor::operator()(coords_t _indices) const
+const Tensor::value_type& Tensor::operator()(coords_t _indices) const
 {
     #ifdef TENSOR_SAFE
         if (_indices.size() != dimensions.size())
@@ -379,14 +432,14 @@ const value_type& Tensor::operator()(coords_t _indices) const
         }
     #endif
 
-    size_t index = _indices[0];
-    for (unsigned i(1) ; i < nDimensions() ; i++)
+    size_t index = 0;
+    for (unsigned i(0) ; i < _indices.size() ; i++)
         index += _indices[i] * strides[i];
 
     return values[index];
 }
 
-const value_type& Tensor::operator()(size_t i0) const
+const Tensor::value_type& Tensor::operator()(size_t i0) const
 {
     #ifdef TENSOR_SAFE
         return operator()( coords_t{i0} );
@@ -395,22 +448,22 @@ const value_type& Tensor::operator()(size_t i0) const
     return values[i0];
 }
 
-const value_type& Tensor::operator()(size_t i0, size_t i1) const
+const Tensor::value_type& Tensor::operator()(size_t i0, size_t i1) const
 {
     #ifdef TENSOR_SAFE
         return operator()({i0, i1});
     #endif
 
-    return values[i0 + i1*strides[1]];
+    return values[i0*strides[0] + i1];
 }
 
-const value_type& Tensor::operator()(size_t i0, size_t i1, size_t i2) const
+const Tensor::value_type& Tensor::operator()(size_t i0, size_t i1, size_t i2) const
 {
     #ifdef TENSOR_SAFE
         return operator()({i0, i1, i2});
     #endif
 
-    return values[i0 + i1*strides[1] + i2*strides[2]];
+    return values[i0*strides[0] + i1*strides[1] +i2];
 }
 
 void Tensor::operator+=(const Tensor& _tensor)
@@ -435,6 +488,21 @@ void Tensor::addOuterProduct(const Tensor& a, const Tensor& b)
     for (unsigned i(0) ; i < size(0) ; i++)
         for (unsigned j(0) ; j < size(1) ; j++)
             operator()(i, j) += a(i) * b(j);
+}
+
+Tensor::value_type dot(const Tensor& a, const Tensor& b)
+{
+    #ifdef TENSOR_SAFE
+        if (a.size(0) != b.size(0))
+            std::cout << "dot -> sizes do not match" << std::endl;
+    #endif
+
+    Tensor::value_type result = 0.0;
+
+    for (unsigned i(0) ; i < a.size(0) ; i++)
+        result += a(i) * b(i);
+
+    return result;
 }
 
 void convolve(Tensor& result, const Tensor& kernel, const Tensor& src)
@@ -467,19 +535,6 @@ void convolve(Tensor& result, const Tensor& kernel, const Tensor& src)
     }
 }
 
-void dot(value_type& result, const Tensor& a, const Tensor& b)
-{
-    #ifdef TENSOR_SAFE
-        if (a.size(0) != b.size(0))
-            std::cout << "dot -> sizes do not match" << std::endl;
-    #endif
-
-    result = 0.0;
-
-    for (unsigned i(0) ; i < a.size(0) ; i++)
-        result += a(i) * b(i);
-}
-
 void outerProduct(Tensor& result, const Tensor& a, const Tensor& b)
 {
     result.resize({a.size(0), b.size(0)});
@@ -502,7 +557,7 @@ void mulmm(Tensor& result, const Tensor& a, const Tensor& b)
     {
         for (unsigned j(0) ; j < b.size(1) ; j++)
         {
-            value_type& s = result(i, j); s = 0.0;
+            auto& s = result(i, j); s = 0.0;
 
             for (unsigned k(0) ; k < a.size(1) ; k++)
                 s += a(i, k) * b(k, j);
@@ -523,7 +578,7 @@ void mulmtm(Tensor& result, const Tensor& a, const Tensor& b)
     {
         for (unsigned j(0) ; j < b.size(1) ; j++)
         {
-            value_type& s = result(i, j); s = 0.0;
+            auto& s = result(i, j); s = 0.0;
 
             for (unsigned k(0) ; k < a.size(0) ; k++)
                 s += a(k, i) * b(k, j);
@@ -544,7 +599,7 @@ void mulmmt(Tensor& result, const Tensor& a, const Tensor& b)
     {
         for (unsigned j(0) ; j < b.size(0) ; j++)
         {
-            value_type& s = result(i, j); s = 0.0;
+            auto& s = result(i, j); s = 0.0;
 
             for (unsigned k(0) ; k < a.size(1) ; k++)
                 s += a(i, k) * b(j, k);
@@ -656,12 +711,12 @@ std::ostream& operator<<(std::ostream& os, const Tensor& t)
 }
 
 
-Tensor Vector(std::initializer_list<value_type> _data)
+Tensor Vector(std::initializer_list<Tensor::value_type> _data)
 {
     Tensor t{_data.size()};
 
     size_t i(0);
-    for (const value_type& e: _data)
+    for (const Tensor::value_type& e: _data)
         t(i++) = e;
 
     return t;
@@ -697,9 +752,9 @@ Tensor Matrix(std::initializer_list<Tensor> _data)
     return t;
 }
 
-Tensor Matrix(std::initializer_list<std::initializer_list<value_type>> _data)
+Tensor Matrix(std::initializer_list<std::initializer_list<Tensor::value_type>> _data)
 {
-    const std::initializer_list<value_type>& d0(*_data.begin());
+    const std::initializer_list<Tensor::value_type>& d0(*_data.begin());
     Tensor t{_data.size(), d0.size()};
 
     size_t i(0), j(0);

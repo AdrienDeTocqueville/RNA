@@ -42,16 +42,11 @@
 			</Target>
 		</Build>
 		<Compiler>
-			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 			<Add directory="D:/Adrien/PROG/Libs/SFML-2.4.2/include" />
 		</Compiler>
 		<Linker>
-			<Add library="mingw32" />
-			<Add library="user32" />
-			<Add library="gdi32" />
-			<Add library="winmm" />
-			<Add library="dxguid" />
+			<Add library="C:/Windows/System32/OpenCL.dll" />
 			<Add directory="D:/Adrien/PROG/Libs/SFML-2.4.2/lib" />
 		</Linker>
 		<Unit filename="Image.cpp" />
@@ -72,14 +67,19 @@
 		<Unit filename="LossFunction.h" />
 		<Unit filename="Network.cpp" />
 		<Unit filename="Network.h" />
+		<Unit filename="OpenCL/linear.cl" />
+		<Unit filename="OpenCL/logSoftMax.cl" />
+		<Unit filename="OpenCL/nonLinear.cl" />
 		<Unit filename="RNA.h" />
-		<Unit filename="Random.cpp" />
-		<Unit filename="Random.h" />
-		<Unit filename="Tensor.cpp" />
-		<Unit filename="Tensor.h" />
+		<Unit filename="Utility/Error.cpp" />
+		<Unit filename="Utility/Error.h" />
+		<Unit filename="Utility/Random.cpp" />
+		<Unit filename="Utility/Random.h" />
+		<Unit filename="Utility/Tensor.cpp" />
+		<Unit filename="Utility/Tensor.h" />
+		<Unit filename="Utility/util.cpp" />
+		<Unit filename="Utility/util.h" />
 		<Unit filename="main.cpp" />
-		<Unit filename="util.cpp" />
-		<Unit filename="util.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />

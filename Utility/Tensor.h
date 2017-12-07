@@ -4,11 +4,10 @@
 #include <ostream>
 #include <vector>
 
-#include "Random.h"
+#include <CL/opencl.h>
 
 using std::size_t;
 
-using value_type = double;
 using coords_t = std::vector<size_t>;
 
 std::ostream& operator<<(std::ostream& os, const coords_t& coords);
@@ -17,6 +16,8 @@ coords_t operator/(const coords_t& coords, const int& a);
 class Tensor
 {
     public:
+        using value_type = float;
+
         static Tensor identityMatrix(size_t _dimension);
 
         Tensor();
@@ -30,6 +31,9 @@ class Tensor
 
         Tensor& operator=(Tensor _tensor);
 
+
+        void toGPU(cl_context _context, cl_mem_flags _flags = CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+        void toGPUAs(cl_mem _buffer);
 
         const coords_t&  size() const;
         size_t size(size_t _dimension) const;
@@ -46,6 +50,8 @@ class Tensor
         Tensor getTranspose() const;
         size_t getIndex(const coords_t&  _indices) const;
 
+        cl_mem getBuffer() const;
+
         value_type length() const;
         value_type length2() const;
 
@@ -53,7 +59,7 @@ class Tensor
         const value_type& max() const;
         coords_t  argmax() const;
 
-        void print(bool _return = true) const;
+        value_type* data();
 
         value_type& operator[](size_t  _index);
         const value_type& operator[](size_t  _index) const;
@@ -83,6 +89,8 @@ class Tensor
         coords_t strides;
         std::vector<value_type> values;
 
+        cl_mem buffer;
+
         friend void swap(Tensor& first, Tensor& second)
         {
             using std::swap;
@@ -90,13 +98,15 @@ class Tensor
             swap(first.dimensions, second.dimensions);
             swap(first.strides, second.strides);
             swap(first.values, second.values);
+            swap(first.buffer, second.buffer);
         }
 };
 
-void convolve(Tensor& result, const Tensor& kernel, const Tensor& src);
+Tensor::value_type dot(const Tensor& a, const Tensor& b);
 
-void dot(value_type& result, const Tensor& a, const Tensor& b);
 void outerProduct(Tensor& result, const Tensor& a, const Tensor& b);
+
+void convolve(Tensor& result, const Tensor& kernel, const Tensor& src);
 
 void mulmm(Tensor& result, const Tensor& a, const Tensor& b);
 void mulmtm(Tensor& result, const Tensor& a, const Tensor& b);
@@ -111,8 +121,8 @@ Tensor operator*(const double& a, const Tensor& b);
 
 std::ostream& operator<<(std::ostream& os, const Tensor& t);
 
-Tensor Vector(std::initializer_list<value_type> _data);
+Tensor Vector(std::initializer_list<Tensor::value_type> _data);
 
 Tensor Matrix(std::vector<Tensor>& _data);
 Tensor Matrix(std::initializer_list<Tensor> _data);
-Tensor Matrix(std::initializer_list<std::initializer_list<value_type>> _data);
+Tensor Matrix(std::initializer_list<std::initializer_list<Tensor::value_type>> _data);

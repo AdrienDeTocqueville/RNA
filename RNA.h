@@ -1,10 +1,10 @@
 #pragma once
 
 // TODO
-// feedforward return ref
-// better backprop gradinput return
-// network.addlayer template
+// Network::feedforward return ref
 // inertia
+
+// use clCreateImage2D for image tensor
 
 #include "Network.h"
 

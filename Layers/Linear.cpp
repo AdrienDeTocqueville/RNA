@@ -1,7 +1,8 @@
 #include "Linear.h"
 
 #include <fstream>
-#include <iostream>
+
+#include "../Utility/Error.h"
 
 namespace rna
 {
@@ -50,6 +51,14 @@ void Linear::randomize()
     bias.randomize(-1.0, 1.0);
 }
 
+void Linear::toGPU(cl_context _context, cl_device_id _device)
+{
+    loadKernel(_context, _device, "OpenCL/linear.cl", "linear");
+
+    weights.toGPU(_context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    bias.toGPU(_context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+}
+
 const Tensor& Linear::feedForward(const Tensor& _input)
 {
     if (_input.nDimensions() == 1)
@@ -93,13 +102,41 @@ const Tensor& Linear::backprop(const Tensor& _input, const Tensor& _gradOutput)
     return gradInput;
 }
 
+void Linear::GPUfeedForward(cl_command_queue& commandQueue, const Tensor& _inputBatch)
+{
+    output.resize({_inputBatch.size(0), weights.size(0)});
+
+    cl_context context;
+    clGetCommandQueueInfo(commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+
+    output.toGPU(context, CL_MEM_WRITE_ONLY);
+
+    cl_mem outputBuffer = output.getBuffer();
+    cl_mem inputBuffer = _inputBatch.getBuffer();
+    cl_mem weightsBuffer = weights.getBuffer();
+    cl_mem biasBuffer = bias.getBuffer();
+    cl_int widthA(_inputBatch.size(1)), heightB(weights.size(0));
+
+    clSetKernelArg(kernel, 0, sizeof(cl_mem), &outputBuffer);
+    clSetKernelArg(kernel, 1, sizeof(cl_mem), &inputBuffer);
+    clSetKernelArg(kernel, 2, sizeof(cl_mem), &weightsBuffer);
+    clSetKernelArg(kernel, 3, sizeof(cl_mem), &biasBuffer);
+
+    clSetKernelArg(kernel, 4, sizeof(cl_int), &widthA);
+    clSetKernelArg(kernel, 5, sizeof(cl_int), &heightB);
+
+	size_t global_work_size[] = { _inputBatch.size(0), weights.size(0) };
+	clEnqueueNDRangeKernel(commandQueue, kernel, 2, nullptr, global_work_size, nullptr, 0, nullptr, nullptr);
+	clEnqueueReadBuffer(commandQueue, output.getBuffer(), CL_FALSE, 0, output.nElements() * sizeof(float), output.data(), 0, nullptr, nullptr);
+}
+
 void Linear::zeroParametersGradients()
 {
     gradWeight.fill(0.0);
     gradBias.fill(0.0);
 }
 
-void Linear::updateParameters(double _learningRate, double _inertia)
+void Linear::updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia)
 {
 //    deltaWeight = _inertia * deltaWeight + _learningRate * gradWeight;
 //    deltaBias = _inertia * deltaBias + _learningRate * gradBias;
