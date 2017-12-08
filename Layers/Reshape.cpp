@@ -21,25 +21,23 @@ Reshape::Reshape(std::ifstream& _file):
         _file >> outputSize[i];
 }
 
-const Tensor& Reshape::feedForward(const Tensor& _input)
+void Reshape::feedForwardCPU(const Tensor& _input)
 {
     output = _input;
     output.resize(outputSize);
-
-    return output;
 }
 
-const Tensor& Reshape::backprop(const Tensor& _input, const Tensor& _gradOutput)
+void Reshape::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
     gradInput = _gradOutput;
     gradInput.resizeAs(_input);
-
-    return gradInput;
 }
 
 
 void Reshape::saveToFile(std::ofstream& _file) const
 {
+    Layer::saveToFile(_file);
+
     _file << outputSize.size() << std::endl;
 
     for (unsigned i(0) ; i < outputSize.size() ; i++)

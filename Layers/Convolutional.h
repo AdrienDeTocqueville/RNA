@@ -13,13 +13,13 @@ class Convolutional: public Layer
 
         void randomize();
 
-        virtual const Tensor& feedForward(const Tensor& _input);
-        virtual const Tensor& backprop(const Tensor& _input, const Tensor& _gradOutput);
+        virtual void feedForwardCPU(const Tensor& _input);
+        virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
 
-        virtual void zeroParametersGradients();
-        virtual void updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia);
+        virtual void zeroParametersGradients() override;
+        virtual void updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia) override;
 
-        virtual void saveToFile(std::ofstream& _file) const;
+        virtual void saveToFile(std::ofstream& _file) const override;
 
     private:
         Tensor weights;

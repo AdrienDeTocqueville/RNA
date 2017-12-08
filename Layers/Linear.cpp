@@ -1,6 +1,7 @@
 #include "Linear.h"
 
 #include <fstream>
+#include <iostream>
 
 #include "../Utility/Error.h"
 
@@ -9,7 +10,8 @@ namespace rna
 
 Linear::Linear(size_t _inputSize, size_t _outputSize):
     Layer("Linear"),
-    weights{_outputSize, _inputSize}, bias{_outputSize}
+    weights{_outputSize, _inputSize}, bias{_outputSize},
+    kernelGradParam(0)
 {
     randomize();
 
@@ -21,7 +23,8 @@ Linear::Linear(size_t _inputSize, size_t _outputSize):
 }
 
 Linear::Linear(std::ifstream& _file):
-    Layer("Linear")
+    Layer("Linear"),
+    kernelGradParam(0)
 {
     size_t inputSize, outputSize;
     _file >> inputSize >> outputSize;
@@ -51,15 +54,32 @@ void Linear::randomize()
     bias.randomize(-1.0, 1.0);
 }
 
-void Linear::toGPU(cl_context _context, cl_device_id _device)
+void Linear::toGPU(const cl_context& _context, const cl_device_id& _deviceId)
 {
-    loadKernel(_context, _device, "OpenCL/linear.cl", "linear");
+    if (!kernelForward)
+        kernelForward = loadKernel(_context, _deviceId, "OpenCL/linear.cl", "linearForward");
+
+    if (!kernelBackward)
+        kernelBackward = loadKernel(_context, _deviceId, "OpenCL/linear.cl", "linearBackward");
+
+    if (!kernelGradParam)
+        kernelGradParam = loadKernel(_context, _deviceId, "OpenCL/linear.cl", "linearParametersGradients");
 
     weights.toGPU(_context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
     bias.toGPU(_context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+
+    gradWeight.toGPU(_context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR);
+    gradBias.toGPU(_context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR);
 }
 
-const Tensor& Linear::feedForward(const Tensor& _input)
+void Linear::leaveGPU()
+{
+	Layer::leaveGPU();
+
+    clReleaseKernel(kernelGradParam); kernelGradParam = 0;
+}
+
+void Linear::feedForwardCPU(const Tensor& _input)
 {
     if (_input.nDimensions() == 1)
     {
@@ -74,11 +94,29 @@ const Tensor& Linear::feedForward(const Tensor& _input)
             for (unsigned j(0); j < output.size(1); j++)
                 output(i, j) += bias(j);
     }
-
-    return output;
 }
 
-const Tensor& Linear::backprop(const Tensor& _input, const Tensor& _gradOutput)
+void Linear::feedForwardGPU(const cl_command_queue& _commandQueue, const Tensor& _inputBatch)
+{
+    cl_context context;
+    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+
+    output.resize({_inputBatch.size(0), weights.size(0)});
+    output.toGPU(context);
+
+    cl_int inputWidth = _inputBatch.size(1);
+
+    clSetKernelArg(kernelForward, 0, sizeof(cl_mem), &output.getBuffer());
+    clSetKernelArg(kernelForward, 1, sizeof(cl_mem), &_inputBatch.getBuffer());
+    clSetKernelArg(kernelForward, 2, sizeof(cl_mem), &weights.getBuffer());
+    clSetKernelArg(kernelForward, 3, sizeof(cl_mem), &bias.getBuffer());
+    clSetKernelArg(kernelForward, 4, sizeof(cl_int), &inputWidth);
+
+    execKernel(_commandQueue, kernelForward, { output.size(0), output.size(1) });
+	output.readBuffer(_commandQueue);
+}
+
+void Linear::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
     if (_input.nDimensions() == 1)
     {
@@ -98,36 +136,38 @@ const Tensor& Linear::backprop(const Tensor& _input, const Tensor& _gradOutput)
             for (unsigned j(0) ; j < _gradOutput.size(1) ; j++)
                 gradBias(j) += _gradOutput(i, j);
     }
-
-    return gradInput;
 }
 
-void Linear::GPUfeedForward(cl_command_queue& commandQueue, const Tensor& _inputBatch)
+void Linear::backpropGPU(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
-    output.resize({_inputBatch.size(0), weights.size(0)});
-
     cl_context context;
-    clGetCommandQueueInfo(commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
 
-    output.toGPU(context, CL_MEM_WRITE_ONLY);
+    gradInput.resizeAs({_gradOutputBatch.size(0), weights.size(1)});
+    gradInput.toGPU(context);
 
-    cl_mem outputBuffer = output.getBuffer();
-    cl_mem inputBuffer = _inputBatch.getBuffer();
-    cl_mem weightsBuffer = weights.getBuffer();
-    cl_mem biasBuffer = bias.getBuffer();
-    cl_int widthA(_inputBatch.size(1)), heightB(weights.size(0));
+    cl_int gradOutputWidth = _gradOutputBatch.size(1);
+    cl_int inputWidth = _inputBatch.size(1);
 
-    clSetKernelArg(kernel, 0, sizeof(cl_mem), &outputBuffer);
-    clSetKernelArg(kernel, 1, sizeof(cl_mem), &inputBuffer);
-    clSetKernelArg(kernel, 2, sizeof(cl_mem), &weightsBuffer);
-    clSetKernelArg(kernel, 3, sizeof(cl_mem), &biasBuffer);
+    // gradInput
+    clSetKernelArg(kernelBackward, 0, sizeof(cl_mem), &gradInput.getBuffer());
+    clSetKernelArg(kernelBackward, 1, sizeof(cl_mem), &_gradOutputBatch.getBuffer());
+    clSetKernelArg(kernelBackward, 2, sizeof(cl_mem), &weights.getBuffer());
+    clSetKernelArg(kernelBackward, 3, sizeof(cl_int), &gradOutputWidth);
 
-    clSetKernelArg(kernel, 4, sizeof(cl_int), &widthA);
-    clSetKernelArg(kernel, 5, sizeof(cl_int), &heightB);
+    execKernel(_commandQueue, kernelBackward, { gradInput.size(0), gradInput.size(1) });
+	gradInput.readBuffer(_commandQueue);
 
-	size_t global_work_size[] = { _inputBatch.size(0), weights.size(0) };
-	clEnqueueNDRangeKernel(commandQueue, kernel, 2, nullptr, global_work_size, nullptr, 0, nullptr, nullptr);
-	clEnqueueReadBuffer(commandQueue, output.getBuffer(), CL_FALSE, 0, output.nElements() * sizeof(float), output.data(), 0, nullptr, nullptr);
+    // gradWeight, gradBias
+    clSetKernelArg(kernelGradParam, 0, sizeof(cl_mem), &gradWeight.getBuffer());
+    clSetKernelArg(kernelGradParam, 1, sizeof(cl_mem), &gradBias.getBuffer());
+    clSetKernelArg(kernelGradParam, 2, sizeof(cl_mem), &_gradOutputBatch.getBuffer());
+    clSetKernelArg(kernelGradParam, 3, sizeof(cl_mem), &_inputBatch.getBuffer());
+    clSetKernelArg(kernelGradParam, 4, sizeof(cl_int), &inputWidth);
+
+    execKernel(_commandQueue, kernelGradParam, { _gradOutputBatch.size(0), _gradOutputBatch.size(1) });
+	gradWeight.readBuffer(_commandQueue);
+	gradBias.readBuffer(_commandQueue);
 }
 
 void Linear::zeroParametersGradients()
@@ -144,6 +184,7 @@ void Linear::updateParameters(Tensor::value_type _learningRate, Tensor::value_ty
 //    weights -= deltaWeight;
 //    bias    -= deltaBias;
 
+    // TODO: Fix inertia
     deltaWeight = (1.0 - _inertia) * _learningRate * gradWeight + _inertia * deltaWeight;
     deltaBias   = (1.0 - _inertia) * _learningRate * gradBias   + _inertia * deltaBias;
 
@@ -154,6 +195,8 @@ void Linear::updateParameters(Tensor::value_type _learningRate, Tensor::value_ty
 
 void Linear::saveToFile(std::ofstream& _file) const
 {
+    Layer::saveToFile(_file);
+
     _file << weights.size(1) << "   " << weights.size(0) << std::endl;
 
     // Save weights

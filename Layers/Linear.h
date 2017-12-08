@@ -13,18 +13,21 @@ class Linear: public Layer
 
         void randomize();
 
-        virtual const Tensor& feedForward(const Tensor& _input);
-        virtual const Tensor& backprop(const Tensor& _input, const Tensor& _gradOutput);
+        virtual void feedForwardCPU(const Tensor& _input);
+        virtual void feedForwardGPU(const cl_command_queue& _commandQueue, const Tensor& _inputBatch);
 
-        virtual void GPUfeedForward(cl_command_queue& commandQueue, const Tensor& _inputBatch);
+        virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
+        virtual void backpropGPU(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
 
-        virtual void zeroParametersGradients();
-        virtual void updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia);
 
-        virtual void saveToFile(std::ofstream& _file) const;
+        virtual void zeroParametersGradients() override;
+        virtual void updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia) override;
+
+        virtual void saveToFile(std::ofstream& _file) const override;
 
     private:
-        virtual void toGPU(cl_context _context, cl_device_id _device);
+        virtual void toGPU(const cl_context& _context, const cl_device_id& _deviceId) override;
+        virtual void leaveGPU() override;
 
         Tensor weights;
         Tensor bias;
@@ -34,6 +37,8 @@ class Linear: public Layer
 
         Tensor deltaWeight;
         Tensor deltaBias;
+
+        cl_kernel kernelGradParam;
 };
 
 }

@@ -16,7 +16,11 @@ coords_t operator/(const coords_t& coords, const int& a);
 class Tensor
 {
     public:
-        using value_type = float;
+        #ifdef TENSOR_DOUBLE
+            using value_type = double;
+        #else
+            using value_type = float;
+        #endif
 
         static Tensor identityMatrix(size_t _dimension);
 
@@ -32,8 +36,10 @@ class Tensor
         Tensor& operator=(Tensor _tensor);
 
 
-        void toGPU(cl_context _context, cl_mem_flags _flags = CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+        void toGPU(cl_context _context, cl_mem_flags _flags = CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR);
         void toGPUAs(cl_mem _buffer);
+
+        void leaveGPU();
 
         const coords_t&  size() const;
         size_t size(size_t _dimension) const;
@@ -50,7 +56,10 @@ class Tensor
         Tensor getTranspose() const;
         size_t getIndex(const coords_t&  _indices) const;
 
-        cl_mem getBuffer() const;
+        const cl_mem& getBuffer() const;
+        void readBuffer(const cl_command_queue& _commandQueue, const cl_bool& _blockingRead = CL_FALSE);
+
+        value_type* data();
 
         value_type length() const;
         value_type length2() const;
@@ -58,8 +67,6 @@ class Tensor
         value_type& max();
         const value_type& max() const;
         coords_t  argmax() const;
-
-        value_type* data();
 
         value_type& operator[](size_t  _index);
         const value_type& operator[](size_t  _index) const;
@@ -82,7 +89,7 @@ class Tensor
         friend Tensor operator+(const Tensor& a, const Tensor& b);
         friend Tensor operator-(const Tensor& a, const Tensor& b);
 
-        friend Tensor operator*(const double& s, const Tensor& t);
+        friend Tensor operator*(const value_type& s, const Tensor& t);
 
     private:
         coords_t dimensions;
@@ -117,7 +124,7 @@ void mulmv(Tensor& result, const Tensor& a, const Tensor& b);
 Tensor operator+(const Tensor& a, const Tensor& b);
 Tensor operator-(const Tensor& a, const Tensor& b);
 
-Tensor operator*(const double& a, const Tensor& b);
+Tensor operator*(const Tensor::value_type& a, const Tensor& b);
 
 std::ostream& operator<<(std::ostream& os, const Tensor& t);
 

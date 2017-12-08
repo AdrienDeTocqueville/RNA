@@ -14,6 +14,7 @@
 				<Compiler>
 					<Add option="-pedantic" />
 					<Add option="-Wextra" />
+					<Add option="-Wall" />
 					<Add option="-std=c++11" />
 					<Add option="-g" />
 					<Add option="-DDEBUG" />
@@ -63,13 +64,20 @@
 		<Unit filename="Layers/MaxPooling.h" />
 		<Unit filename="Layers/Reshape.cpp" />
 		<Unit filename="Layers/Reshape.h" />
-		<Unit filename="LossFunction.cpp" />
-		<Unit filename="LossFunction.h" />
+		<Unit filename="Losses/LossFunction.cpp" />
+		<Unit filename="Losses/LossFunction.h" />
+		<Unit filename="Losses/MSE.cpp" />
+		<Unit filename="Losses/MSE.h" />
+		<Unit filename="Losses/NLL.cpp" />
+		<Unit filename="Losses/NLL.h" />
 		<Unit filename="Network.cpp" />
 		<Unit filename="Network.h" />
+		<Unit filename="Network.inl" />
+		<Unit filename="OpenCL/activations.cl" />
 		<Unit filename="OpenCL/linear.cl" />
 		<Unit filename="OpenCL/logSoftMax.cl" />
-		<Unit filename="OpenCL/nonLinear.cl" />
+		<Unit filename="OpenCL/losses.cl" />
+		<Unit filename="Optimizer.h" />
 		<Unit filename="RNA.h" />
 		<Unit filename="Utility/Error.cpp" />
 		<Unit filename="Utility/Error.h" />
@@ -79,6 +87,8 @@
 		<Unit filename="Utility/Tensor.h" />
 		<Unit filename="Utility/util.cpp" />
 		<Unit filename="Utility/util.h" />
+		<Unit filename="clWrapper.cpp" />
+		<Unit filename="clWrapper.h" />
 		<Unit filename="main.cpp" />
 		<Extensions>
 			<code_completion />

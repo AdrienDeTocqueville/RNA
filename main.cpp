@@ -11,6 +11,8 @@ bool envStep(const size_t& action, double& reward, Tensor& nextState, bool v = f
 void loadXOR(unsigned _size, rna::DataSet& _data);
 void loadMNIST(unsigned _size, rna::DataSet& _data);
 
+void validateMNIST(rna::Network& _ann, const rna::DataSet& _dataSet);
+
 void SARSA();
 void SARSALambda();
 void QLearning();
@@ -20,8 +22,8 @@ Tensor gamestate({1}, 4);
 int main()
 {
     std::string selection = "GPU";
-    std::cout << "Select network (GPU, QL, DQN, XOR, MNIST, CONV, TEST): ";
-//    std::cin >> selection;
+    std::cout << "MNIST: CPU, GPU, CONV\n" << "AUTRE: RL, DQN, XOR, TEST\n" <<"Select network: ";
+    std::cin >> selection;
     std::cout << std::endl;
 
     for (auto& c: selection)
@@ -30,10 +32,8 @@ int main()
     rna::DataSet dataSet;
     rna::Network ann;
 
-    if ("QL" == selection)
-    {
+    if ("RL" == selection)
         QLearning();
-    }
 
     if ("DQN" == selection)
     {
@@ -43,9 +43,9 @@ int main()
         unsigned memSize = 10000;
         unsigned batchSize = 64;
         unsigned targetUpdate = 1000;
-        double discount = 0.99;
+        Tensor::value_type discount = 0.99;
 
-        double epsilonI = 1.0, epsilonF = 0.1;
+        Tensor::value_type epsilonI = 1.0, epsilonF = 0.1;
 
         unsigned HU = 10;
         ann.addLayer( new rna::Linear(1, HU) );
@@ -57,6 +57,8 @@ int main()
 
         rna::Memory memory;
         int step = 0;
+
+        rna::Optimizer<rna::MSE> op(0.01f, 0.0f);
 
         for (unsigned i(0); i < episodes; i++)
         {
@@ -77,12 +79,12 @@ int main()
                 terminate = envStep(action, reward, nextState);
 
                 if (memory.size() < memSize)
-                    memory.push_back({state, action, reward, nextState, terminate});
+                    memory.push_back({state, action, (Tensor::value_type)reward, nextState, terminate});
 
                 else
-                    memory[step%memSize] = {state, action, reward, nextState, terminate};
+                    memory[step%memSize] = {state, action, (Tensor::value_type)reward, nextState, terminate};
 
-                ann.QLearn(new rna::MSE(), target, memory, batchSize, 0.01, 0.9, discount);
+//                ann.QLearn(op, target, memory, batchSize, discount);
                 state = nextState;
 
                 step++;
@@ -103,19 +105,19 @@ int main()
     {
         loadMNIST(10000, dataSet);
 
-        ann.loadFromFile("Networks/mnist1.rna");
+        ann.loadFromFile("Networks/mnistGPU.rna");
 
-        for (unsigned i(0) ; i < 2000 ; i++)
-        {
-            i = Random::nextInt(1000, 2000);
-
-            std::cout << std::endl << std::endl << i << std::endl;
-            std::cout << ann.feedForward(dataSet[i].input) << std::endl;
-            std::cout << ann.feedForward(dataSet[i].input).argmax() << std::endl;
-            std::cout << dataSet[i].output << std::endl;
-
-            displayImage(dataSet[i].input, "Output", 8);
-        }
+//        for (unsigned i(0) ; i < 2000 ; i++)
+//        {
+//            i = Random::nextInt(1000, 2000);
+//
+//            std::cout << std::endl << std::endl << i << std::endl;
+//            std::cout << ann.feedForward(dataSet[i].input) << std::endl;
+//            std::cout << ann.feedForward(dataSet[i].input).argmax() << std::endl;
+//            std::cout << dataSet[i].output << std::endl;
+//
+//            displayImage(dataSet[i].input, "Output", 8);
+//        }
 
 //        ann.train(new rna::NLL(), dataSet, 0.001, 0.9, 10000, 500);
 //        ann.saveToFile("Networks/mnist1.rna");
@@ -143,7 +145,9 @@ int main()
         ann.addLayer( new rna::Linear(HU, 1) );
         ann.addLayer( new rna::Tanh() );
 
-        ann.train(new rna::MSE(), dataSet, 0.001, 0.9, 5000, 500);
+        rna::Optimizer<rna::MSE> op(0.001f, 0.9f);
+
+        ann.train(op, dataSet, 5000, 500);
         ann.saveToFile("Networks/xor.rna");
 
         std::cout << ann.feedForward(Vector({-0.5, -0.5})) << std::endl; // -1.0
@@ -156,29 +160,29 @@ int main()
         return 0;
     }
 
-    if ("MNIST" == selection)
+    if ("CPU" == selection)
     {
-        loadMNIST(1000, dataSet);
-        std::cout << "Loaded" << std::endl;
+        loadMNIST(10000, dataSet);
 
-//        ann.addLayer( new rna::Reshape({28*28}) );
         ann.addLayer( new rna::Linear(28*28, 500) );
         ann.addLayer( new rna::Tanh() );
         ann.addLayer( new rna::Linear(500, 10) );
         ann.addLayer( new rna::Tanh() );
         ann.addLayer( new rna::LogSoftMax() );
 
-        std::cout << "Starting training" << std::endl;
+        std::cout << "Starting training on CPU" << std::endl;
 
-        ann.train(new rna::NLL(), dataSet, 0.01, 0.0, 1000, 100);
+        rna::Optimizer<rna::NLL> op(0.01f, 0.0f);
 
-        ann.validate(dataSet);
-        ann.saveToFile("Networks/mnist1.rna");
+        ann.train(op, dataSet, 1000, 100, 32);
+        ann.saveToFile("Networks/mnistCPU.rna");
+
+        validateMNIST(ann, dataSet);
     }
 
     if ("GPU" == selection)
     {
-        loadMNIST(1000, dataSet);
+        loadMNIST(10000, dataSet);
 
         ann.addLayer( new rna::Linear(28*28, 500) );
         ann.addLayer( new rna::Tanh() );
@@ -186,9 +190,16 @@ int main()
         ann.addLayer( new rna::Tanh() );
         ann.addLayer( new rna::LogSoftMax() );
 
-        ann.toGPU();
+        std::cout << "Starting training on GPU" << std::endl;
 
-        ann.GPUtrain(new rna::NLL(), dataSet, 0.01, 0.0, 1000, 100, 6);
+        rna::Optimizer<rna::NLL> op(0.01f, 0.0f);
+
+        ann.toGPU();
+        ann.train(op, dataSet, 1000, 100, 32);
+        ann.saveToFile("Networks/mnistGPU.rna");
+
+        ann.leaveGPU();
+        validateMNIST(ann, dataSet);
     }
 
     if ("CONV" == selection)
@@ -221,29 +232,31 @@ int main()
 
         std::cout << "ANN created" << std::endl;
 
-        ann.train(new rna::NLL(), dataSet, 0.01, 0.3, 10000, 100);
+        rna::Optimizer<rna::NLL> op(0.01f, 0.3f);
+
+        ann.train(op, dataSet, 10000, 100, 32);
 
         ann.saveToFile("Networks/leNet1.rna");
     }
 
     if ("TEST" == selection)
     {
-        loadMNIST(2000, dataSet);
+        loadMNIST(100, dataSet);
 
-        ann.loadFromFile("Networks/leNet1.rna");
+        ann.addLayer( new rna::Linear(28*28, 500) );
+        ann.addLayer( new rna::Tanh() );
+        ann.addLayer( new rna::Linear(500, 10) );
+        ann.addLayer( new rna::Tanh() );
+//        ann.addLayer( new rna::LogSoftMax() );
 
-        for (unsigned i(0) ; i < 2000 ; i++)
-        {
-            i = Random::nextInt(1000, 2000);
-            dataSet[i].input.resize({1, 28, 28});
+        Tensor input, output;
+        randomMinibatch(dataSet, input, output, 32);
 
-            std::cout << std::endl << std::endl << i << std::endl;
-            std::cout << ann.feedForward(dataSet[i].input) << std::endl;
-            std::cout << ann.feedForward(dataSet[i].input).argmax() << std::endl;
-            std::cout << dataSet[i].output << std::endl;
+        ann.toGPU();
+        Tensor outputEstimate = ann.feedForward(input);
+        ann.backprop(input, outputEstimate);
 
-            displayImage(dataSet[i].input, "Output", 8);
-        }
+        std::cout << ann.getLayer(0)->getGradInput() << std::endl;
 
         return 0;
     }
@@ -316,6 +329,23 @@ void loadMNIST(unsigned _size, rna::DataSet& _data) // 60000 examples
 
     LoadMNISTImages(_data);
     LoadMNISTLabels(_data);
+
+    std::cout << "Loaded MNIST" << std::endl;
+}
+
+void validateMNIST(rna::Network& _ann, const rna::DataSet& _dataSet)
+{
+    int correct = 0;
+
+    for (auto& example: _dataSet)
+    {
+        Tensor output = _ann.feedForward(example.input);
+
+        if (output.argmax()[0] == example.output(0))
+            correct++;
+    }
+
+    std::cout << "Validation: " << correct << " over " << _dataSet.size() << " examples" << std::endl;
 }
 
 void SARSA()
@@ -503,7 +533,9 @@ void QLearning()
         std::cout << dataSet[i].input << ": " << dataSet[i].output << std::endl;
     }
 
-    ann.train(new rna::MSE(), dataSet, 0.001, 0.9, 5000, 5000);
+    rna::Optimizer<rna::MSE> op(0.001f, 0.9f);
+
+    ann.train(op, dataSet, 5000, 5000, 32);
 
     for (unsigned i(0); i < 9; i++)
     {

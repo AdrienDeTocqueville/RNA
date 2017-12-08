@@ -5,12 +5,16 @@
 namespace rna
 {
 
-void LogSoftMax::toGPU(cl_context _context, cl_device_id _device)
+void LogSoftMax::toGPU(const cl_context& _context, const cl_device_id& _deviceId)
 {
-    loadKernel(_context, _device, "OpenCL/logSoftMax.cl", "logSoftMax");
+    if (!kernelForward)
+        kernelForward = loadKernel(_context, _deviceId, "OpenCL/logSoftMax.cl", "logSoftMaxForward");
+
+    if (!kernelBackward)
+        kernelBackward = loadKernel(_context, _deviceId, "OpenCL/logSoftMax.cl", "logSoftMaxBackward");
 }
 
-const Tensor& LogSoftMax::feedForward(const Tensor& _input)
+void LogSoftMax::feedForwardCPU(const Tensor& _input)
 {
     output.resizeAs(_input);
 
@@ -46,11 +50,27 @@ const Tensor& LogSoftMax::feedForward(const Tensor& _input)
                 output(i, j) = _input(i, j) - logSum;
         }
     }
-
-    return output;
 }
 
-const Tensor& LogSoftMax::backprop(const Tensor& _input, const Tensor& _gradOutput)
+void LogSoftMax::feedForwardGPU(const cl_command_queue& _commandQueue, const Tensor& _inputBatch)
+{
+    cl_context context;
+    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+
+    output.resizeAs(_inputBatch);
+    output.toGPU(context);
+
+    cl_int inputWidth = _inputBatch.size(1);
+
+    clSetKernelArg(kernelForward, 0, sizeof(cl_mem), &output.getBuffer());
+    clSetKernelArg(kernelForward, 1, sizeof(cl_mem), &_inputBatch.getBuffer());
+    clSetKernelArg(kernelForward, 2, sizeof(cl_int), &inputWidth);
+
+    execKernel(_commandQueue, kernelForward, {_inputBatch.size(0)});
+	output.readBuffer(_commandQueue);
+}
+
+void LogSoftMax::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
     gradInput.resizeAs(_input);
 
@@ -75,30 +95,26 @@ const Tensor& LogSoftMax::backprop(const Tensor& _input, const Tensor& _gradOutp
                 gradInput(i, j) = _gradOutput(i, j) - exp(output(i, j))*sum;
         }
     }
-
-    return gradInput;
 }
 
-void LogSoftMax::GPUfeedForward(cl_command_queue& commandQueue, const Tensor& _inputBatch)
+void LogSoftMax::backpropGPU(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
-    output.resizeAs(_inputBatch);
-
     cl_context context;
-    clGetCommandQueueInfo(commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
 
-    output.toGPU(context, CL_MEM_WRITE_ONLY);
+    gradInput.resizeAs(_inputBatch);
+    gradInput.toGPU(context);
 
-    cl_mem outputBuffer = output.getBuffer();
-    cl_mem inputBuffer = _inputBatch.getBuffer();
-    cl_int inputWidth = _inputBatch.size(1);
+    cl_int gradOutputWidth = _gradOutputBatch.size(1);
 
-    clSetKernelArg(kernel, 0, sizeof(cl_mem), &outputBuffer);
-    clSetKernelArg(kernel, 1, sizeof(cl_mem), &inputBuffer);
-    clSetKernelArg(kernel, 2, sizeof(cl_int), &inputWidth);
+    clSetKernelArg(kernelBackward, 0, sizeof(cl_mem), &gradInput.getBuffer());
+    clSetKernelArg(kernelBackward, 1, sizeof(cl_mem), &_inputBatch.getBuffer());
+    clSetKernelArg(kernelBackward, 2, sizeof(cl_mem), &_gradOutputBatch.getBuffer());
+    clSetKernelArg(kernelBackward, 3, sizeof(cl_mem), &output.getBuffer());
+    clSetKernelArg(kernelBackward, 4, sizeof(cl_int), &gradOutputWidth);
 
-	size_t global_work_size[] = { _inputBatch.size(0) };
-	clEnqueueNDRangeKernel(commandQueue, kernel, 1, nullptr, global_work_size, nullptr, 0, nullptr, nullptr);
-	clEnqueueReadBuffer(commandQueue, output.getBuffer(), CL_FALSE, 0, output.nElements() * sizeof(float), output.data(), 0, nullptr, nullptr);
+    execKernel(_commandQueue, kernelBackward, { _inputBatch.size(0) });
+	gradInput.readBuffer(_commandQueue);
 }
 
 }

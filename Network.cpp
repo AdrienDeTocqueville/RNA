@@ -2,16 +2,30 @@
 
 #include "Utility/Random.h"
 
-#include <algorithm>
-
 #include <iostream>
 #include <fstream>
-#include <ctime>
 
 #include "windows.h"
 
 namespace rna
 {
+
+void randomMinibatch(const DataSet& _dataSet, Tensor& _inputBatch, Tensor& _outputBatch, const unsigned& _minibatchSize)
+{
+    _inputBatch.resize({_minibatchSize, _dataSet[0].input.nElements()});
+    _outputBatch.resize({_minibatchSize, _dataSet[0].output.nElements()});
+
+    for (size_t i(0); i < _minibatchSize; i++)
+    {
+        const Example& example = Random::element(_dataSet);
+
+        for (unsigned j(0) ; j < _inputBatch.size(1) ; j++)
+            _inputBatch(i, j) = example.input[j];
+
+        for (unsigned j(0) ; j < _outputBatch.size(1) ; j++)
+            _outputBatch(i, j) = example.output[j];
+    }
+}
 
 Network::Network():
     context(0),
@@ -68,7 +82,7 @@ Network::Network(const Network& _network):
 
 Network::~Network()
 {
-	clReleaseContext(context);
+    leaveGPU();
 
     for (unsigned i(0) ; i < layers.size() ; ++i)
         delete layers[i];
@@ -84,6 +98,11 @@ Network& Network::operator=(Network _network)
 void Network::addLayer(Layer* _layer)
 {
     layers.push_back(_layer);
+}
+
+const Layer* Network::getLayer(size_t _index) const
+{
+    return layers[_index];
 }
 
 void Network::toGPU()
@@ -107,154 +126,54 @@ void Network::toGPU()
         l->toGPU(context, deviceId);
 }
 
+void Network::leaveGPU()
+{
+	clReleaseContext(context);
+	context = 0;
+
+    for (Layer* l: layers)
+        l->leaveGPU();
+}
+
 Tensor Network::feedForward(const Tensor& _input)
 {
-    if (!layers.size())
-        return _input;
+    if (!context)
+        return feedForwardCPU(_input);
 
-    layers.front()->feedForward(_input);
+    else
+    {
+        std::cout << "can't use GPU with const tensor&" << std::endl;
+        return Tensor();
+    }
+}
 
-    for (unsigned i(1) ; i < layers.size() ; ++i)
-        layers[i]->feedForward( layers[i-1]->output );
+Tensor Network::feedForward(Tensor& _input)
+{
+    if (!context)
+        return feedForwardCPU(_input);
 
-    return layers.back()->output;
+    else
+        return feedForwardGPU(_input);
 }
 
 void Network::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
-    layers.back()->backprop(layers[layers.size()-2]->output, _gradOutput);
+    if (!context)
+        return backpropCPU(_input, _gradOutput);
 
-    for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
-        layers[l]->backprop(layers[l-1]->output, layers[l+1]->gradInput);
-
-    layers[0]->backprop(_input, layers[1]->gradInput);
+    else
+        std::cout << "cna't use GPU with const tensor&" << std::endl;
 }
 
-Tensor Network::GPUfeedForward(const Tensor& _inputBatch)
+void Network::backprop(Tensor& _input, Tensor& _gradOutput)
 {
-    if (!layers.size())
-        return _inputBatch;
+    if (!context)
+        return backpropCPU(_input, _gradOutput);
 
-    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, nullptr);
-
-
-    layers.front()->GPUfeedForward(commandQueue, _inputBatch);
-
-    for (unsigned i(1) ; i < layers.size() ; ++i)
-        layers[i]->GPUfeedForward( commandQueue, layers[i-1]->output );
-
-
-    clReleaseCommandQueue(commandQueue);
-
-    return layers.back()->output;
+    else
+        return backpropGPU(_input, _gradOutput);
 }
 
-void Network::train(LossFunction* _loss, const DataSet& _dataSet, Tensor::value_type _learningRate, Tensor::value_type _inertia, unsigned _maxEpochs, unsigned _epochsBetweenReports)
-{
-    auto debut = time(NULL);
-
-    unsigned epoch = 0;
-    double error = 0.0;
-
-    _learningRate = std::max(_learningRate, Tensor::value_type(0.0));
-    _inertia = std::min(std::max(Tensor::value_type(0.0), _inertia), Tensor::value_type(1.0));
-
-    do
-    {
-        zeroParametersGradients();
-
-        const Example& example = Random::element(_dataSet);
-
-        Tensor output = feedForward( example.input );
-
-        error += _loss->getLoss(output, example.output);
-        Tensor gradient = _loss->getGradient(output, example.output);
-
-        backprop(example.input, gradient);
-
-        updateParameters(_learningRate, _inertia);
-
-
-        ++epoch;
-        if (epoch%_epochsBetweenReports == 0)
-        {
-            std::cout << "At epoch " << epoch << ":" << std::endl;
-            std::cout << "Error = " << error/_epochsBetweenReports << std::endl;
-
-            std::cout << std::endl;
-
-            error = 0.0;
-        }
-    }
-    while (epoch != _maxEpochs);
-
-    delete _loss;
-
-    std::cout << "Temps: " << time(NULL)-debut << std::endl;
-}
-
-void Network::GPUtrain(LossFunction* _loss, const DataSet& _dataSet, Tensor::value_type _learningRate, Tensor::value_type _inertia, unsigned _maxEpochs, unsigned _epochsBetweenReports, unsigned _minibatchSize)
-{
-    auto debut = GetTickCount();
-
-    cl_int error;
-
-    /// Program & kernel
-    rna::Linear* l1 = reinterpret_cast<rna::Linear*>(layers[0]);
-
-    /// Buffers
-    Tensor inputBatch({_minibatchSize, _dataSet[0].input.nElements()});
-
-    for (size_t i(0); i < inputBatch.size(0); i++)
-    {
-        const Example& example = Random::element(_dataSet);
-
-        for (unsigned j(0) ; j < inputBatch.size(1) ; j++)
-            inputBatch(i, j) = example.input[j];
-    }
-
-    std::cout << "Input: " << inputBatch << std::endl;
-
-    debut = GetTickCount();
-    std::cout << "Output: " << std::endl << feedForward(inputBatch) << std::endl;
-    std::cout << "CPU time: " << GetTickCount()-debut << " ms" << std::endl;
-
-    debut = GetTickCount();
-    inputBatch.toGPU(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-    std::cout << "Output: " << std::endl << GPUfeedForward(inputBatch) << std::endl;
-    std::cout << "GPU time: " << GetTickCount()-debut << " ms" << std::endl;
-
-
-    delete _loss;
-
-
-}
-
-void Network::QLearn(LossFunction* _loss, Network& target, const Memory& _memory, Tensor::value_type _learningRate, Tensor::value_type _inertia, unsigned _miniBatchSize, double _discount)
-{
-    _learningRate = std::max(_learningRate, Tensor::value_type(0.0));
-    _inertia = std::min(std::max(Tensor::value_type(0.0), _inertia), Tensor::value_type(1.0));
-
-
-    zeroParametersGradients();
-
-    for (unsigned i(0) ; i < _miniBatchSize ; ++i)
-    {
-//        const Transition& transition = Random::element(_memory);
-//
-//        Tensor output = feedForward(transition.state);
-//        Tensor expectedValue(output.size(), 0.0), targetedValue(output.size(), 0.0);
-//
-//        expectedValue(transition.action) = output(transition.action);
-//        targetedValue(transition.action) = transition.reward + _discount * (transition.terminal? 0.0: target.feedForward(transition.nextState).max());
-//
-//        Tensor gradient = _loss->getGradient(expectedValue, targetedValue);
-//
-//        backprop(transition.state, gradient);
-    }
-
-    updateParameters(_learningRate, _inertia);
-}
 
 void Network::zeroParametersGradients()
 {
@@ -268,22 +187,7 @@ void Network::updateParameters(Tensor::value_type _learningRate, Tensor::value_t
         layers[l]->updateParameters(_learningRate, _inertia);
 }
 
-void Network::validate(const DataSet& _dataSet)
-{
-    double correct = 0.0;
-
-    for (auto& example: _dataSet)
-    {
-        Tensor output = feedForward(example.input);
-
-        if (output.argmax()[0] == example.output(0))
-            correct++;
-    }
-
-    std::cout << "Validation: " << correct << " over " << _dataSet.size() << " examples" << std::endl;
-}
-
-bool Network::saveToFile(std::string _file) const
+bool Network::saveToFile(const std::string& _file) const
 {
     std::ofstream file(_file);
 
@@ -305,7 +209,7 @@ bool Network::saveToFile(std::string _file) const
     return true;
 }
 
-bool Network::loadFromFile(std::string _file)
+bool Network::loadFromFile(const std::string& _file)
 {
     std::ifstream file(_file);
 
@@ -362,6 +266,60 @@ bool Network::loadFromFile(std::string _file)
     }
 
     return true;
+}
+
+/// Methods (private)
+Tensor Network::feedForwardCPU(const Tensor& _input)
+{
+    layers.front()->feedForwardCPU(_input);
+
+    for (unsigned l(1) ; l < layers.size() ; ++l)
+        layers[l]->feedForwardCPU( layers[l-1]->getOutput() );
+
+    return layers.back()->getOutput();
+}
+
+Tensor Network::feedForwardGPU(Tensor& _inputBatch)
+{
+    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, nullptr);
+
+    _inputBatch.toGPU(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+
+    layers.front()->feedForwardGPU(commandQueue, _inputBatch);
+
+    for (unsigned l(1) ; l < layers.size() ; ++l)
+        layers[l]->feedForwardGPU( commandQueue, layers[l-1]->getOutput() );
+
+    clReleaseCommandQueue(commandQueue);
+
+    return layers.back()->getOutput();
+}
+
+void Network::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
+{
+    layers.back()->backpropCPU(layers[layers.size()-2]->getOutput(), _gradOutput);
+
+    for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
+        layers[l]->backpropCPU(layers[l-1]->getOutput(), layers[l+1]->getGradInput());
+
+    layers[0]->backpropCPU(_input, layers[1]->getGradInput());
+}
+
+void Network::backpropGPU(Tensor& _inputBatch, Tensor& _gradOutputBatch)
+{
+    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, nullptr);
+
+    _inputBatch.toGPU(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    _gradOutputBatch.toGPU(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+
+    layers.back()->backpropGPU(commandQueue, layers[layers.size()-2]->getOutput(), _gradOutputBatch);
+
+    for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
+        layers[l]->backpropGPU(commandQueue, layers[l-1]->getOutput(), layers[l+1]->getGradInput());
+
+    layers[0]->backpropGPU(commandQueue, _inputBatch, layers[1]->getGradInput());
+
+    clReleaseCommandQueue(commandQueue);
 }
 
 }

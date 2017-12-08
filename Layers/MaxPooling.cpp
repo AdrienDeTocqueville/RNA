@@ -3,7 +3,7 @@
 namespace rna
 {
 
-const Tensor& MaxPooling::feedForward(const Tensor& _input)
+void MaxPooling::feedForwardCPU(const Tensor& _input)
 {
     output.resize( {_input.size(0), _input.size(1) / 2, _input.size(2) / 2} );
     indices.resizeAs(output);
@@ -26,11 +26,9 @@ const Tensor& MaxPooling::feedForward(const Tensor& _input)
             output(c, i, j) = pool[am];
         }
     }
-
-    return output;
 }
 
-const Tensor& MaxPooling::backprop(const Tensor& _input, const Tensor& _gradOutput)
+void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
     gradInput.resizeAs(_input);
     gradInput.fill(0.0);
@@ -55,8 +53,6 @@ const Tensor& MaxPooling::backprop(const Tensor& _input, const Tensor& _gradOutp
             gradInput(coord) = _gradOutput(c, i, j);
         }
     }
-
-    return gradInput;
 }
 
 }

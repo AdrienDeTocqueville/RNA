@@ -28,10 +28,8 @@ coords_t operator/(const coords_t& coords, const int& a)
 {
     coords_t result(coords.size());
 
-    double iA = 1.0 / a;
-
     for (unsigned i(0) ; i < coords.size() ; i++)
-        result[i] = coords[i] * iA;
+        result[i] = coords[i] / a;
 
     return result;
 }
@@ -62,10 +60,7 @@ Tensor::Tensor(const Tensor& _tensor):
     strides(_tensor.strides),
     values(_tensor.values),
     buffer(0)
-{
-    if (_tensor.buffer != 0)
-        toGPUAs(_tensor.buffer);
-}
+{ }
 
 Tensor::Tensor(const coords_t& _dimensions, const value_type& _value):
     Tensor()
@@ -81,7 +76,7 @@ Tensor::Tensor(std::initializer_list<size_t> _dimensions, const value_type& _val
 
 Tensor::~Tensor()
 {
-	clReleaseMemObject(buffer);
+    leaveGPU();
 }
 
 Tensor& Tensor::operator=(Tensor _tensor)
@@ -95,15 +90,14 @@ Tensor& Tensor::operator=(Tensor _tensor)
 void Tensor::toGPU(cl_context _context, cl_mem_flags _flags)
 {
     if (buffer)
-        clReleaseMemObject(buffer);
+        return;
 
     cl_int error = CL_SUCCESS;
+    size_t byteSize = sizeof (value_type) * nElements();
+    void* host_ptr = (_flags&CL_MEM_USE_HOST_PTR || _flags&CL_MEM_COPY_HOST_PTR)? data(): nullptr;
 
-    if (_flags&CL_MEM_USE_HOST_PTR || _flags&CL_MEM_COPY_HOST_PTR)
-        buffer = clCreateBuffer(_context, _flags, sizeof (float) * nElements(), data(), &error);
-
-    else
-        buffer = clCreateBuffer(_context, _flags, sizeof (float) * nElements(), nullptr, &error);
+    // TODO: use clCreateImage2D for matrix ?
+    buffer = clCreateBuffer(_context, _flags, byteSize, host_ptr, &error);
 
     if (error != CL_SUCCESS)
         std::cout << "Unable to create buffer: " << error << std::endl;
@@ -118,6 +112,15 @@ void Tensor::toGPUAs(cl_mem _buffer)
     clGetMemObjectInfo(_buffer, CL_MEM_FLAGS, sizeof(cl_mem_flags), &flags, nullptr);
 
     toGPU(context, flags);
+}
+
+void Tensor::leaveGPU()
+{
+    if (buffer)
+    {
+        clReleaseMemObject(buffer);
+        buffer = 0;
+    }
 }
 
 const coords_t& Tensor::size() const
@@ -150,14 +153,13 @@ void Tensor::resize(const coords_t& _dimensions, const value_type& _value)
     if (dimensions == _dimensions)
         return;
 
+    leaveGPU();
+
     if (!_dimensions.size())
     {
         dimensions.clear();
         strides.clear();
         values.clear();
-
-        clReleaseMemObject(buffer);
-        buffer = 0;
 
         return;
     }
@@ -171,9 +173,6 @@ void Tensor::resize(const coords_t& _dimensions, const value_type& _value)
         strides[i] = strides[i+1] * dimensions[i+1];
 
     values.resize(dimensions[0]*strides[0], _value);
-
-    if (buffer)
-        toGPUAs(buffer); // Resize OpenCL buffer
 }
 
 void Tensor::resizeAs(const Tensor& _tensor, const value_type& _value)
@@ -181,12 +180,11 @@ void Tensor::resizeAs(const Tensor& _tensor, const value_type& _value)
     if (dimensions == _tensor.dimensions)
         return;
 
+    leaveGPU();
+
     dimensions = _tensor.dimensions;
     strides = _tensor.strides;
     values.resize(_tensor.values.size(), _value);
-
-    if (buffer)
-        toGPUAs(buffer); // Resize OpenCL buffer
 }
 
 void Tensor::fill(value_type _value)
@@ -197,9 +195,9 @@ void Tensor::fill(value_type _value)
 
 void Tensor::round(unsigned _decimals)
 {
-    double factor = pow(10, _decimals);
+    value_type factor = pow(value_type(10), _decimals);
 
-    for (Tensor::value_type& v: values)
+    for (value_type& v: values)
         v = std::round(v*factor)/factor;
 }
 
@@ -233,6 +231,9 @@ Tensor Tensor::getTranspose() const
 size_t Tensor::getIndex(const coords_t&  _indices) const
 {
     #ifdef TENSOR_SAFE
+        if (_indices.size() != dimensions.size())
+            std::cout << "Tensor::operator() -> number of dimensions is invalid" << std::endl;
+
         for (unsigned i(0) ; i < dimensions.size() ; i++)
         {
             if (_indices[i] >= dimensions[i])
@@ -240,14 +241,14 @@ size_t Tensor::getIndex(const coords_t&  _indices) const
         }
     #endif
 
-    size_t index = _indices[0];
-    for (unsigned i(1) ; i < nDimensions() ; i++)
+    size_t index = 0;
+    for (unsigned i(0) ; i < _indices.size() ; i++)
         index += _indices[i] * strides[i];
 
     return index;
 }
 
-cl_mem Tensor::getBuffer() const
+const cl_mem& Tensor::getBuffer() const
 {
     #ifdef TENSOR_SAFE
         if (buffer == 0)
@@ -255,6 +256,16 @@ cl_mem Tensor::getBuffer() const
     #endif // TENSOR_SAFE
 
     return buffer;
+}
+
+void Tensor::readBuffer(const cl_command_queue& _commandQueue, const cl_bool& _blockingRead)
+{
+	clEnqueueReadBuffer(_commandQueue, getBuffer(), _blockingRead, 0, nElements() * sizeof(value_type), data(), 0, nullptr, nullptr);
+}
+
+Tensor::value_type* Tensor::data()
+{
+    return values.data();
 }
 
 Tensor::value_type Tensor::length() const
@@ -335,21 +346,15 @@ coords_t Tensor::argmax() const
         }
     }
 
-
     coords_t arg(dimensions.size());
 
-    for (unsigned i(dimensions.size()) ; i-- > 0 ;)
+    for (unsigned i(0); i < dimensions.size(); i++)
     {
         arg[i] = index / strides[i];
         index -= arg[i] * strides[i];
     }
 
     return arg;
-}
-
-Tensor::value_type* Tensor::data()
-{
-    return values.data();
 }
 
 Tensor::value_type& Tensor::operator[](size_t  _index)
@@ -374,22 +379,7 @@ const Tensor::value_type& Tensor::operator[](size_t _index) const
 
 Tensor::value_type& Tensor::operator()(coords_t _indices)
 {
-    #ifdef TENSOR_SAFE
-        if (_indices.size() != dimensions.size())
-            std::cout << "Tensor::operator() -> number of dimensions is invalid" << std::endl;
-
-        for (unsigned i(0) ; i < dimensions.size() ; i++)
-        {
-            if (_indices[i] >= dimensions[i])
-                std::cout << "Tensor::operator() -> index number " << i << " is out of range" << std::endl;
-        }
-    #endif
-
-    size_t index = 0;
-    for (unsigned i(0) ; i < _indices.size() ; i++)
-        index += _indices[i] * strides[i];
-
-    return values[index];
+    return values[getIndex(_indices)];
 }
 
 Tensor::value_type& Tensor::operator()(size_t i0)
@@ -421,22 +411,7 @@ Tensor::value_type& Tensor::operator()(size_t i0, size_t i1, size_t i2)
 
 const Tensor::value_type& Tensor::operator()(coords_t _indices) const
 {
-    #ifdef TENSOR_SAFE
-        if (_indices.size() != dimensions.size())
-            std::cout << "Tensor::operator() -> number of dimensions is invalid" << std::endl;
-
-        for (unsigned i(0) ; i < dimensions.size() ; i++)
-        {
-            if (_indices[i] >= dimensions[i])
-                std::cout << "Tensor::operator() -> index number " << i << " is out of range" << std::endl;
-        }
-    #endif
-
-    size_t index = 0;
-    for (unsigned i(0) ; i < _indices.size() ; i++)
-        index += _indices[i] * strides[i];
-
-    return values[index];
+    return values[getIndex(_indices)];
 }
 
 const Tensor::value_type& Tensor::operator()(size_t i0) const
@@ -661,7 +636,7 @@ Tensor operator-(const Tensor& a, const Tensor& b)
     return res;
 }
 
-Tensor operator*(const double& s, const Tensor& t)
+Tensor operator*(const Tensor::value_type& s, const Tensor& t)
 {
     Tensor res;
     res.values.reserve(t.nElements());

@@ -57,22 +57,18 @@ void Convolutional::randomize()
     bias.randomize(-1.0, 1.0);
 }
 
-const Tensor& Convolutional::feedForward(const Tensor& _input)
+void Convolutional::feedForwardCPU(const Tensor& _input)
 {
     convolve(output, weights, _input);
     output += bias;
-
-    return output;
 }
 
-const Tensor& Convolutional::backprop(const Tensor& _input, const Tensor& _gradOutput)
+void Convolutional::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
     convGradInput(gradInput, weights, _gradOutput);
 
     convGradWeight(gradWeight, _gradOutput, _input);
     gradBias += _gradOutput;
-
-    return gradInput;
 }
 
 void Convolutional::zeroParametersGradients()
@@ -83,6 +79,7 @@ void Convolutional::zeroParametersGradients()
 
 void Convolutional::updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia)
 {
+    // TODO: Fix inertia
     deltaWeight = _inertia * deltaWeight - _learningRate * gradWeight;
     deltaBias = _inertia * deltaBias - _learningRate * gradBias;
 
@@ -93,6 +90,8 @@ void Convolutional::updateParameters(Tensor::value_type _learningRate, Tensor::v
 
 void Convolutional::saveToFile(std::ofstream& _file) const
 {
+    Layer::saveToFile(_file);
+
     _file << weights.size(0) << "   " << weights.size(1) << "   " << weights.size(2) << "   " << weights.size(3) << std::endl;
     _file << bias.size(0) << "   " << bias.size(1) << "   " << bias.size(2) << std::endl;
 

@@ -1,14 +1,11 @@
 #pragma once
 
-// TODO
-// Network::feedforward return ref
-// inertia
-
-// use clCreateImage2D for image tensor
-
 #include "Network.h"
+#include "Optimizer.h"
 
-#include "LossFunction.h"
+#include "Losses/LossFunction.h"
+#include "Losses/MSE.h"
+#include "Losses/NLL.h"
 
 #include "Layers/Layer.h"
 #include "Layers/Linear.h"
