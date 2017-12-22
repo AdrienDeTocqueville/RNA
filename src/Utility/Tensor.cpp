@@ -96,7 +96,7 @@ void Tensor::openCL(cl_context _context, cl_mem_flags _flags)
     size_t byteSize = sizeof (value_type) * nElements();
     void* host_ptr = (_flags&CL_MEM_USE_HOST_PTR || _flags&CL_MEM_COPY_HOST_PTR)? data(): nullptr;
 
-    // TODO: use clCreateImage2D for matrix ?
+    // TODO: Use clCreateImage2D for matrix ?
     buffer = clCreateBuffer(_context, _flags, byteSize, host_ptr, &error);
 
     if (error != CL_SUCCESS)

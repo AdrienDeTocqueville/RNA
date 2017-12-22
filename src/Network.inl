@@ -82,7 +82,7 @@ void Network::trainCL(Optimizer<L>& _optimizer, const DataSet& _dataSet, unsigne
             error += _optimizer.loss.getLoss(output, outputBatch);
             Tensor gradient =_optimizer.loss.getGradient(output, outputBatch);
 
-            // TODO: make openCL usage actually faster for backprop
+            // TODO: Make openCL usage actually faster for backprop
             backpropCL(inputBatch, gradient);
         }
 

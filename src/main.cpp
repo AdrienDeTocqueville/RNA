@@ -234,29 +234,37 @@ int main()
         for (rna::Example& e: dataSet)
             e.input.resize({1, 28, 28});
 
+        ann.addLayer( new rna::Reshape({1, 1, 28, 28}) );
         ann.addLayer( new rna::Convolutional({1, 28, 28}, {5, 5}, 12) );
+        ann.addLayer( new rna::Reshape({1, 24, 24}) );
+//        ann.addLayer( new rna::MaxPooling() );
         ann.addLayer( new rna::Tanh() );
 
-        ann.addLayer( new rna::Convolutional({1, 24, 24}, {5, 5}, 12) );
-        ann.addLayer( new rna::Tanh() );
+//        ann.addLayer( new rna::Convolutional({1, 24, 24}, {5, 5}, 12) );
+//        ann.addLayer( new rna::Tanh() );
+//
+//        ann.addLayer( new rna::Reshape({12*20*20}, true) );
+//
+//        ann.addLayer( new rna::Linear(12*20*20, 10) );
+//        ann.addLayer( new rna::Tanh() );
 
-        ann.addLayer( new rna::Reshape({12*20*20}, true) );
-
-        ann.addLayer( new rna::Linear(12*20*20, 10) );
-        ann.addLayer( new rna::Tanh() );
-
-        Tensor inputB, outputB;
-        rna::randomMinibatch(dataSet, inputB, outputB, 100);
+//        Tensor inputB, outputB;
+//        rna::randomMinibatch(dataSet, inputB, outputB, 100);
+//
+//
+//
+//        auto debut = GetTickCount();
+//
+//        ann.feedForward(inputB);
+//
+//        auto time = GetTickCount()-debut;
+//        std::cout << "Temps: " << (time>1000?time/1000:time) << (time>1000?" s":" ms") << std::endl;
 
 
         ann.openCL(CL_DEVICE_TYPE_CPU);
+        Tensor output = ann.feedForward(dataSet[0].input);
 
-        auto debut = GetTickCount();
-
-        ann.feedForward(inputB);
-
-        auto time = GetTickCount()-debut;
-        std::cout << "Temps: " << (time>1000?time/1000:time) << (time>1000?" s":" ms") << std::endl;
+        std::cout << output << std::endl;
 
 
         return 0;

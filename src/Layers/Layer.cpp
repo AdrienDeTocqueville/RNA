@@ -89,6 +89,7 @@ void Tanh::feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _i
     clSetKernelArg(kernelForward, 0, sizeof(cl_mem), &output.getBuffer());
     clSetKernelArg(kernelForward, 1, sizeof(cl_mem), &_inputBatch.getBuffer());
 
+    // TODO: Fix bug when _inputBatch is of higer dimension than 2
     execKernel(_commandQueue, kernelForward, { _inputBatch.size(0), _inputBatch.size(1) });
 	output.readBuffer(_commandQueue);
 }

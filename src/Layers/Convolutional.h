@@ -5,6 +5,7 @@
 namespace rna
 {
 
+// TODO: Implement backprop
 class Convolutional: public Layer
 {
     public:
@@ -17,6 +18,7 @@ class Convolutional: public Layer
         virtual void feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch);
 
         virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
+//        virtual void backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
 
         virtual void zeroParametersGradients() override;
         virtual void updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia) override;

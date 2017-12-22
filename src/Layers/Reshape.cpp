@@ -51,7 +51,7 @@ void Reshape::feedForwardCL(const cl_command_queue& _commandQueue, const Tensor&
 
     clFinish(_commandQueue); // Wait for previous layers to finish
 
-    feedForwardCPU(_inputBatch); // TODO: move op to GPU ?
+    feedForwardCPU(_inputBatch); // TODO: Move op to GPU ?
 
     output.openCL(context);
 }
@@ -69,7 +69,7 @@ void Reshape::backpropCL(const cl_command_queue& _commandQueue, const Tensor& _i
 
     clFinish(_commandQueue); // Wait for previous layers to finish
 
-    backpropCPU(_inputBatch, _gradOutputBatch); // TODO: move op to GPU ?
+    backpropCPU(_inputBatch, _gradOutputBatch); // TODO: Move op to GPU ?
 
     gradInput.openCL(context);
 }

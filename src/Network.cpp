@@ -58,7 +58,7 @@ Network::Network(const Network& _network):
     context(_network.context),
     deviceId(_network.deviceId)
 {
-    if (context) // TODO: make this work
+    if (context) // TODO: Fix network copy
         std::cout << "Copy of CL network: This will not work" << std::endl;
 
     for (const Layer* originalLayer: _network.layers)

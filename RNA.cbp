@@ -78,6 +78,7 @@
 		<Unit filename="src/OpenCL/linear.cl" />
 		<Unit filename="src/OpenCL/logSoftMax.cl" />
 		<Unit filename="src/OpenCL/losses.cl" />
+		<Unit filename="src/OpenCL/maxPooling.cl" />
 		<Unit filename="src/Optimizer.h" />
 		<Unit filename="src/RNA.h" />
 		<Unit filename="src/Utility/Error.cpp" />

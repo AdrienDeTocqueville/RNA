@@ -14,5 +14,4 @@
 #include "Layers/LogSoftMax.h"
 #include "Layers/Convolutional.h"
 
-// TODO: call clSetKernelArg once for const args
-// TODO: MaxPooling with openCL
+// TODO: Call clSetKernelArg once for const args ?

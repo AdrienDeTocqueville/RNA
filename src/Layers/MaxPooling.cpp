@@ -3,6 +3,15 @@
 namespace rna
 {
 
+void MaxPooling::openCL(const cl_context& _context, const cl_device_id& _deviceId)
+{
+    if (!kernelForward)
+        kernelForward = loadKernel(_context, _deviceId, "src/OpenCL/maxPooling.cl", "maxPoolingForward");
+
+    if (!kernelBackward)
+        kernelBackward = loadKernel(_context, _deviceId, "src/OpenCL/maxPooling.cl", "maxPoolingBackward");
+}
+
 void MaxPooling::feedForwardCPU(const Tensor& _input)
 {
     output.resize( {_input.size(0), _input.size(1) / 2, _input.size(2) / 2} );
@@ -26,6 +35,26 @@ void MaxPooling::feedForwardCPU(const Tensor& _input)
             output(c, i, j) = pool[am];
         }
     }
+}
+
+void MaxPooling::feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch)
+{
+    cl_context context;
+    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+
+    output.resize( {_inputBatch.size(0), _inputBatch.size(1) / 2, _inputBatch.size(2) / 2} );
+    indices.resizeAs(output);
+
+    output.openCL(context);
+    indices.openCL(context);
+
+    clSetKernelArg(kernelForward, 0, sizeof(cl_mem), &output.getBuffer());
+    clSetKernelArg(kernelForward, 1, sizeof(cl_mem), &indices.getBuffer());
+    clSetKernelArg(kernelForward, 2, sizeof(cl_mem), &_inputBatch.getBuffer());
+
+    execKernel(_commandQueue, kernelForward, output.size());
+	output.readBuffer(_commandQueue);
+	indices.readBuffer(_commandQueue);
 }
 
 void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)

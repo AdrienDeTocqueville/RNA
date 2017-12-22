@@ -4,7 +4,7 @@ __kernel void convolutionalForward(__global float* _output, __global float* _inp
     const int tx = get_global_id(1);
     const int ty = get_global_id(2);
 
-    int biasIndex = tc*get_global_size(1)*get_global_size(2) + tx * get_global_size(2) + ty;
+    int biasIndex = tc * get_global_size(1)*get_global_size(2) + tx * get_global_size(2) + ty;
     int outputIndex = _batch * get_global_size(0)*get_global_size(1)*get_global_size(2) + biasIndex;
 
     float value = 0.0f;
