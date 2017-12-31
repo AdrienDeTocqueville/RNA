@@ -18,7 +18,7 @@ class Convolutional: public Layer
         virtual void feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch);
 
         virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
-//        virtual void backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
+        virtual void backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
 
         virtual void zeroParametersGradients() override;
         virtual void updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia) override;
@@ -26,7 +26,7 @@ class Convolutional: public Layer
         virtual void saveToFile(std::ofstream& _file) const override;
 
     private:
-        virtual void openCL(const cl_context& _context, const cl_device_id& _deviceId) override;
+        virtual void openCL(cl::ContextWrapper& _context) override;
         virtual void releaseCL() override;
 
         Tensor weights;
@@ -38,7 +38,7 @@ class Convolutional: public Layer
         Tensor deltaWeight;
         Tensor deltaBias;
 
-        cl_kernel kernelGradParam;
+        cl::KernelWrapper paramsGradKernel;
 };
 
 void convGradInput(Tensor& gradInput, const Tensor& kernel, const Tensor& gradOutput);

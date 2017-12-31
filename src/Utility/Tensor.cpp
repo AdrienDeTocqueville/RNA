@@ -371,7 +371,7 @@ Tensor::value_type& Tensor::operator[](size_t  _index)
 {
     #ifdef TENSOR_SAFE
         if (_index >= values.size())
-            std::cout << "Tensor::operator[] -> index is out of range" << std::endl;
+            std::cout << "Tensor::operator[]() -> index is out of range" << std::endl;
     #endif
 
     return values[_index];
@@ -381,7 +381,7 @@ const Tensor::value_type& Tensor::operator[](size_t _index) const
 {
     #ifdef TENSOR_SAFE
         if (_index >= values.size())
-            std::cout << "Tensor::operator[] -> index is out of range" << std::endl;
+            std::cout << "Tensor::operator[]() -> index is out of range" << std::endl;
     #endif
 
     return values[_index];
@@ -467,7 +467,7 @@ void Tensor::addOuterProduct(const Tensor& a, const Tensor& b)
 {
     #ifdef TENSOR_SAFE
         if (size(0) != a.size(0) || size(1) != b.size(0))
-            std::cout << "Tensor::addOuterProduct -> Result do not fit in tensor." << std::endl;
+            std::cout << "Tensor::addOuterProduct() -> Result do not fit in tensor." << std::endl;
     #endif
 
     for (unsigned i(0) ; i < size(0) ; i++)
@@ -479,7 +479,7 @@ Tensor::value_type dot(const Tensor& a, const Tensor& b)
 {
     #ifdef TENSOR_SAFE
         if (a.size(0) != b.size(0))
-            std::cout << "dot -> sizes do not match" << std::endl;
+            std::cout << "dot() -> sizes do not match" << std::endl;
     #endif
 
     Tensor::value_type result = 0.0;
@@ -494,7 +494,7 @@ void convolve(Tensor& result, const Tensor& kernel, const Tensor& src)
 {
     #ifdef TENSOR_SAFE
         if (src.size(0) != kernel.size(1))
-            std::cout << "convolve -> Kernel and source image don't have same the number of channels." << std::endl;
+            std::cout << "convolve() -> Kernel and source image don't have same the number of channels." << std::endl;
     #endif
 
     coords_t resSize{ kernel.size(0), src.size(1)-kernel.size(2)+1, src.size(2)-kernel.size(3)+1 };
@@ -533,7 +533,7 @@ void mulmm(Tensor& result, const Tensor& a, const Tensor& b)
 {
     #ifdef TENSOR_SAFE
         if (a.size(1) != b.size(0))
-            std::cout << "mulmm -> sizes do not match" << std::endl;
+            std::cout << "mulmm() -> sizes do not match" << std::endl;
     #endif
 
     result.resize({a.size(0), b.size(1)});
@@ -554,7 +554,7 @@ void mulmtm(Tensor& result, const Tensor& a, const Tensor& b)
 {
     #ifdef TENSOR_SAFE
         if (a.size(0) != b.size(0))
-            std::cout << "mulmm -> sizes do not match" << std::endl;
+            std::cout << "mulmtm() -> sizes do not match" << std::endl;
     #endif
 
     result.resize({a.size(1), b.size(1)});
@@ -575,7 +575,7 @@ void mulmmt(Tensor& result, const Tensor& a, const Tensor& b)
 {
     #ifdef TENSOR_SAFE
         if (a.size(1) != b.size(1))
-            std::cout << "mulmm -> sizes do not match" << std::endl;
+            std::cout << "mulmm() -> sizes do not match" << std::endl;
     #endif
 
     result.resize({a.size(0), b.size(0)});
@@ -596,7 +596,7 @@ void mulmv(Tensor& result, const Tensor& a, const Tensor& b)
 {
     #ifdef TENSOR_SAFE
         if (a.size(1) != b.size(0))
-            std::cout << "mulmv -> sizes do not match" << std::endl;
+            std::cout << "mulmv() -> sizes do not match" << std::endl;
     #endif
 
     result.resize({a.size(0)});
@@ -614,7 +614,7 @@ Tensor operator+(const Tensor& a, const Tensor& b)
 {
     #ifdef TENSOR_SAFE
         if (a.size() != b.size())
-            std::cout << "operator+ -> sizes do not match" << std::endl;
+            std::cout << "operator+() -> sizes do not match" << std::endl;
     #endif
 
     Tensor res;
@@ -632,7 +632,7 @@ Tensor operator-(const Tensor& a, const Tensor& b)
 {
     #ifdef TENSOR_SAFE
         if (a.size() != b.size())
-            std::cout << "operator- -> sizes do not match" << std::endl;
+            std::cout << "operator-() -> sizes do not match" << std::endl;
     #endif
 
     Tensor res;
@@ -677,7 +677,7 @@ std::ostream& operator<<(std::ostream& os, const Tensor& t)
 {
     #ifdef TENSOR_SAFE
         if (!t.nElements())
-            std::cout << "operator<< -> empty tensor" << std::endl;
+            std::cout << "operator<<() -> empty tensor" << std::endl;
     #endif
 
     if (t.nDimensions() == 1)
@@ -685,7 +685,7 @@ std::ostream& operator<<(std::ostream& os, const Tensor& t)
         os << "(" << t(0);
 
         for (unsigned i(1) ; i < t.size(0) ; i++)
-            os << ", " << t(i);
+            os << " " << t(i);
 
         os << ")";
     }

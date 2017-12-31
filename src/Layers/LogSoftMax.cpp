@@ -5,13 +5,12 @@
 namespace rna
 {
 
-void LogSoftMax::openCL(const cl_context& _context, const cl_device_id& _deviceId)
+void LogSoftMax::openCL(cl::ContextWrapper& _context)
 {
-    if (!kernelForward)
-        kernelForward = loadKernel(_context, _deviceId, "src/OpenCL/logSoftMax.cl", "logSoftMaxForward");
+    auto& p = _context.getProgram("res/OpenCL/logSoftMax.cl");
 
-    if (!kernelBackward)
-        kernelBackward = loadKernel(_context, _deviceId, "src/OpenCL/logSoftMax.cl", "logSoftMaxBackward");
+    forwardKernel.create(p, "feedForwardLogSoftMax");
+    backwardKernel.create(p, "backpropLogSoftMax");
 }
 
 void LogSoftMax::feedForwardCPU(const Tensor& _input)
@@ -60,13 +59,11 @@ void LogSoftMax::feedForwardCL(const cl_command_queue& _commandQueue, const Tens
     output.resizeAs(_inputBatch);
     output.openCL(context);
 
-    cl_int inputWidth = _inputBatch.size(1);
+    forwardKernel.setArg(0, output);
+    forwardKernel.setArg(1,_inputBatch);
+    forwardKernel.setArg(2,_inputBatch.size(1));
 
-    clSetKernelArg(kernelForward, 0, sizeof(cl_mem), &output.getBuffer());
-    clSetKernelArg(kernelForward, 1, sizeof(cl_mem), &_inputBatch.getBuffer());
-    clSetKernelArg(kernelForward, 2, sizeof(cl_int), &inputWidth);
-
-    execKernel(_commandQueue, kernelForward, {_inputBatch.size(0)});
+    forwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
 	output.readBuffer(_commandQueue);
 }
 
@@ -105,15 +102,13 @@ void LogSoftMax::backpropCL(const cl_command_queue& _commandQueue, const Tensor&
     gradInput.resizeAs(_inputBatch);
     gradInput.openCL(context);
 
-    cl_int gradOutputWidth = _gradOutputBatch.size(1);
+    backwardKernel.setArg(0, gradInput);
+    backwardKernel.setArg(1,_inputBatch);
+    backwardKernel.setArg(2,_gradOutputBatch);
+    backwardKernel.setArg(3, output);
+    backwardKernel.setArg(4,_gradOutputBatch.size(1));
 
-    clSetKernelArg(kernelBackward, 0, sizeof(cl_mem), &gradInput.getBuffer());
-    clSetKernelArg(kernelBackward, 1, sizeof(cl_mem), &_inputBatch.getBuffer());
-    clSetKernelArg(kernelBackward, 2, sizeof(cl_mem), &_gradOutputBatch.getBuffer());
-    clSetKernelArg(kernelBackward, 3, sizeof(cl_mem), &output.getBuffer());
-    clSetKernelArg(kernelBackward, 4, sizeof(cl_int), &gradOutputWidth);
-
-    execKernel(_commandQueue, kernelBackward, { _inputBatch.size(0) });
+    backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
 	gradInput.readBuffer(_commandQueue);
 }
 

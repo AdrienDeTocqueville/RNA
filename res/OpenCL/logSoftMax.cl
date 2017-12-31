@@ -1,4 +1,4 @@
-__kernel void logSoftMaxForward(__global float* _output, __global float* _input, int _inputWidth)
+__kernel void feedForwardLogSoftMax(__global float* _output, __global float* _input, int _inputWidth)
 {
     const int start = get_global_id(0)*_inputWidth;
 
@@ -17,7 +17,7 @@ __kernel void logSoftMaxForward(__global float* _output, __global float* _input,
         _output[start+i] = _input[start+i] - logSum;
 }
 
-__kernel void logSoftMaxBackward(__global float* _gradInput, __global float* _input, __global float* _gradOutput, __global float* _output, int _gradOutputWidth)
+__kernel void backpropLogSoftMax(__global float* _gradInput, __global float* _input, __global float* _gradOutput, __global float* _output, int _gradOutputWidth)
 {
     const int start = get_global_id(0)*_gradOutputWidth;
 

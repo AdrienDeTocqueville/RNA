@@ -1,6 +1,7 @@
 #include "RNA.h"
 
 #include "Utility/Random.h"
+#include "Utility/Error.h"
 
 #include <iostream>
 #include <fstream>
@@ -19,7 +20,8 @@ void randomMinibatch(const DataSet& _dataSet, Tensor& _inputBatch, Tensor& _outp
 
     for (size_t i(0); i < _minibatchSize; i++)
     {
-        const Example& example = Random::element(_dataSet);
+//        const Example& example = Random::element(_dataSet);
+        const Example& example = _dataSet[0];
 
         for (unsigned j(0) ; j < _inputBatch.size(1) ; j++)
             _inputBatch(i, j) = example.input[j];
@@ -36,16 +38,18 @@ void randomMinibatch(const DataSet& _dataSet, Tensor& _inputBatch, Tensor& _outp
     _outputBatch.resize(oSize);
 }
 
-Network::Network():
-    context(0),
-    deviceId(0)
+Network::Network()
 {
     #ifdef RANDOM_SEED
         Random::setSeed();
         std::cout << "Seed: " << Random::getSeed() << std::endl;
     #else
         Random::setSeed(1513874735);
+
+        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+        SetConsoleTextAttribute(hConsole, 12);
         std::cout << "Warning: seed is fixed to " << Random::getSeed() << std::endl;
+        SetConsoleTextAttribute(hConsole, 7);
     #endif
 }
 
@@ -54,11 +58,11 @@ Network::Network(Network&& _network)
     swap(*this, _network);
 }
 
+/*
 Network::Network(const Network& _network):
-    context(_network.context),
-    deviceId(_network.deviceId)
+    context(_network.context)
 {
-    if (context) // TODO: Fix network copy
+    if (context) // FIXME: Network copy
         std::cout << "Copy of CL network: This will not work" << std::endl;
 
     for (const Layer* originalLayer: _network.layers)
@@ -97,6 +101,7 @@ Network::Network(const Network& _network):
             layers.push_back(layer);
     }
 }
+*/
 
 Network::~Network()
 {
@@ -128,34 +133,10 @@ void Network::openCL(cl_device_type _deviceType)
     if (context)
         return;
 
-    cl_int error;
-
-    cl_platform_id platform_id;
-    error = clGetPlatformIDs(1, &platform_id, nullptr);
-    if (error != CL_SUCCESS)
-        std::cout << "Failed to get platforms" << std::endl;
-
-    error = clGetDeviceIDs(platform_id, _deviceType, 1, &deviceId, nullptr);
-    if (error != CL_SUCCESS)
-        std::cout << "Failed to get devices" << std::endl;
-
-    // Print version
-//    cl_uint deviceIdCount = 0;
-//    clGetDeviceInfo(deviceId, CL_DEVICE_VERSION, 0, nullptr, &deviceIdCount);
-
-//    char* v = (char*)malloc(deviceIdCount*sizeof(char));
-//    clGetDeviceInfo(deviceId, CL_DEVICE_VERSION, deviceIdCount, v, nullptr);
-//
-//    std::cout << v << std::endl;
-//
-//    free(v);
-
-    context = clCreateContext(NULL, 1, &deviceId, NULL, NULL, &error);
-    if (error != CL_SUCCESS)
-        std::cout << "Failed to create context" << std::endl;
+    context.create(_deviceType);
 
     for (Layer* l: layers)
-        l->openCL(context, deviceId);
+        l->openCL(context);
 }
 
 void Network::releaseCL()
@@ -163,8 +144,7 @@ void Network::releaseCL()
     if (!context)
         return;
 
-    clReleaseContext(context);
-    context = 0;
+    context.release();
 
     for (Layer* l: layers)
         l->releaseCL();
@@ -197,7 +177,7 @@ void Network::backprop(const Tensor& _input, const Tensor& _gradOutput)
         return backpropCPU(_input, _gradOutput);
 
     else
-        std::cout << "cna't use openCL with const tensor&" << std::endl;
+        std::cout << "can't use openCL with const tensor&" << std::endl;
 }
 
 void Network::backprop(Tensor& _input, Tensor& _gradOutput)
@@ -316,9 +296,10 @@ Tensor Network::feedForwardCPU(const Tensor& _input)
 
 Tensor Network::feedForwardCL(Tensor& _inputBatch)
 {
-    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, nullptr);
+//    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, nullptr);
+    cl_command_queue commandQueue = clCreateCommandQueue(context(), context.getDeviceId(), 0, nullptr);
 
-    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    _inputBatch.openCL(context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
 
     layers.front()->feedForwardCL(commandQueue, _inputBatch);
 
@@ -332,27 +313,42 @@ Tensor Network::feedForwardCL(Tensor& _inputBatch)
 
 void Network::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
-    layers.back()->backpropCPU(layers[layers.size()-2]->getOutput(), _gradOutput);
+    if (layers.size() == 1)
+    {
+        layers[0]->backpropCPU(_input, _gradOutput);
+    }
+    else
+    {
+        layers.back()->backpropCPU(layers[layers.size()-2]->getOutput(), _gradOutput);
 
-    for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
-        layers[l]->backpropCPU(layers[l-1]->getOutput(), layers[l+1]->getGradInput());
+        for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
+            layers[l]->backpropCPU(layers[l-1]->getOutput(), layers[l+1]->getGradInput());
 
-    layers[0]->backpropCPU(_input, layers[1]->getGradInput());
+        layers[0]->backpropCPU(_input, layers[1]->getGradInput());
+    }
 }
 
 void Network::backpropCL(Tensor& _inputBatch, Tensor& _gradOutputBatch)
 {
-    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, nullptr);
+//    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, nullptr);
+    cl_command_queue commandQueue = clCreateCommandQueue(context(), context.getDeviceId(), 0, nullptr);
 
-    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-    _gradOutputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    _inputBatch.openCL(context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    _gradOutputBatch.openCL(context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
 
-    layers.back()->backpropCL(commandQueue, layers[layers.size()-2]->getOutput(), _gradOutputBatch);
+    if (layers.size() == 1)
+    {
+        layers[0]->backpropCPU(_inputBatch, _gradOutputBatch);
+    }
+    else
+    {
+        layers.back()->backpropCL(commandQueue, layers[layers.size()-2]->getOutput(), _gradOutputBatch);
 
-    for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
-        layers[l]->backpropCL(commandQueue, layers[l-1]->getOutput(), layers[l+1]->getGradInput());
+        for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
+            layers[l]->backpropCL(commandQueue, layers[l-1]->getOutput(), layers[l+1]->getGradInput());
 
-    layers[0]->backpropCL(commandQueue, _inputBatch, layers[1]->getGradInput());
+        layers[0]->backpropCL(commandQueue, _inputBatch, layers[1]->getGradInput());
+    }
 
     clReleaseCommandQueue(commandQueue);
 }

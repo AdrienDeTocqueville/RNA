@@ -17,7 +17,7 @@ class LogSoftMax: public Layer
         virtual void backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
 
     private:
-        virtual void openCL(const cl_context& _context, const cl_device_id& _deviceId) override;
+        virtual void openCL(cl::ContextWrapper& _context) override;
 };
 
 }

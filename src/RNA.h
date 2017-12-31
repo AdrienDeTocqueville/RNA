@@ -14,4 +14,6 @@
 #include "Layers/LogSoftMax.h"
 #include "Layers/Convolutional.h"
 
+#include "Layers/activations.h"
+
 // TODO: Call clSetKernelArg once for const args ?

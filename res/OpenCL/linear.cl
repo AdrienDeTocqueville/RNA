@@ -1,4 +1,4 @@
-__kernel void linearForward(__global float* _output, __global float* _input, __global float* _weights, __global float* _bias, int _inputWidth)
+__kernel void feedForwardLinear(__global float* _output, __global float* _input, __global float* _weights, __global float* _bias, int _inputWidth)
 {
     const int tx = get_global_id(0);
     const int ty = get_global_id(1);
@@ -14,7 +14,7 @@ __kernel void linearForward(__global float* _output, __global float* _input, __g
     _output[tx * get_global_size(1) + ty] = value + _bias[ty];
 }
 
-__kernel void linearBackward(__global float* _gradInput, __global float* _gradOutput, __global float* _weights, int _gradOutputWidth)
+__kernel void backpropLinear(__global float* _gradInput, __global float* _gradOutput, __global float* _weights, int _gradOutputWidth)
 {
     const int tx = get_global_id(0);
     const int ty = get_global_id(1);
@@ -30,7 +30,7 @@ __kernel void linearBackward(__global float* _gradInput, __global float* _gradOu
     _gradInput[tx * get_global_size(1) + ty] = value;
 }
 
-__kernel void linearParametersGradients(__global float* _gradWeight, __global float* _gradBias, __global float* _gradOutput, __global float* _input, int _gradOutputHeight, int _inputWidth)
+__kernel void paramsGradLinear(__global float* _gradWeight, __global float* _gradBias, __global float* _gradOutput, __global float* _input, int _gradOutputHeight, int _inputWidth)
 {
     const int j = get_global_id(0);
 

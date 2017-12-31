@@ -3,13 +3,12 @@
 namespace rna
 {
 
-void MaxPooling::openCL(const cl_context& _context, const cl_device_id& _deviceId)
+void MaxPooling::openCL(cl::ContextWrapper& _context)
 {
-    if (!kernelForward)
-        kernelForward = loadKernel(_context, _deviceId, "src/OpenCL/maxPooling.cl", "maxPoolingForward");
+    auto& p = _context.getProgram("res/OpenCL/maxPooling.cl");
 
-    if (!kernelBackward)
-        kernelBackward = loadKernel(_context, _deviceId, "src/OpenCL/maxPooling.cl", "maxPoolingBackward");
+    forwardKernel.create(p, "feedForwardMaxPooling");
+    backwardKernel.create(p, "backpropMaxPooling");
 }
 
 void MaxPooling::feedForwardCPU(const Tensor& _input)
@@ -42,17 +41,22 @@ void MaxPooling::feedForwardCL(const cl_command_queue& _commandQueue, const Tens
     cl_context context;
     clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
 
-    output.resize( {_inputBatch.size(0), _inputBatch.size(1) / 2, _inputBatch.size(2) / 2} );
-    indices.resizeAs(output);
-
+    output.resize( {_inputBatch.size(0), _inputBatch.size(1), _inputBatch.size(2) / 2, _inputBatch.size(3) / 2} );
     output.openCL(context);
+
+    indices.resizeAs(output);
     indices.openCL(context);
 
-    clSetKernelArg(kernelForward, 0, sizeof(cl_mem), &output.getBuffer());
-    clSetKernelArg(kernelForward, 1, sizeof(cl_mem), &indices.getBuffer());
-    clSetKernelArg(kernelForward, 2, sizeof(cl_mem), &_inputBatch.getBuffer());
+    forwardKernel.setArg(0, output);
+    forwardKernel.setArg(1, indices);
+    forwardKernel.setArg(2,_inputBatch);
 
-    execKernel(_commandQueue, kernelForward, output.size());
+    for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
+    {
+        forwardKernel.setArg(3, i);
+        forwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
+    }
+
 	output.readBuffer(_commandQueue);
 	indices.readBuffer(_commandQueue);
 }
@@ -82,6 +86,29 @@ void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
             gradInput(coord) = _gradOutput(c, i, j);
         }
     }
+}
+
+void MaxPooling::backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+{
+    cl_context context;
+    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+
+    gradInput.resizeAs(_inputBatch);
+    gradInput.fill(0.0);
+    gradInput.openCL(context);
+
+    // gradInput
+    backwardKernel.setArg(0, gradInput);
+    backwardKernel.setArg(1,_gradOutputBatch);
+    backwardKernel.setArg(2, indices);
+
+    for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
+    {
+        backwardKernel.setArg(3, i);
+        backwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
+    }
+
+	gradInput.readBuffer(_commandQueue);
 }
 
 }

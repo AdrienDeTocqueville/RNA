@@ -5,7 +5,6 @@
 namespace rna
 {
 
-// TODO: Implement backprop
 class MaxPooling: public Layer
 {
     public:
@@ -15,12 +14,12 @@ class MaxPooling: public Layer
         virtual void feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch);
 
         virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
-//        virtual void backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
+        virtual void backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
 
     private:
-        virtual void openCL(const cl_context& _context, const cl_device_id& _deviceId) override;
+        virtual void openCL(cl::ContextWrapper& _context) override;
 
-        Tensor indices;
+        Tensor indices; // TODO: indices should be array of size_t
 };
 
 }

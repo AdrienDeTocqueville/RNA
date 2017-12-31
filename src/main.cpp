@@ -18,10 +18,11 @@ void SARSALambda();
 void QLearning();
 
 Tensor gamestate({1}, 4);
+const auto deviceType = CL_DEVICE_TYPE_ALL;
 
 int main()
 {
-    std::string selection = "TEST";
+    std::string selection = "N";
 
     if (selection.empty())
     {
@@ -59,7 +60,7 @@ int main()
         ann.addLayer( new rna::Linear(HU, 2) );
         ann.addLayer( new rna::Tanh() );
 
-        rna::Network target(ann);
+//        rna::Network target(ann);
 
         rna::Memory memory;
         int step = 0;
@@ -94,8 +95,8 @@ int main()
                 state = nextState;
 
                 step++;
-                if (step % targetUpdate == 0)
-                    target = rna::Network(ann);
+//                if (step % targetUpdate == 0)
+//                    target = rna::Network(ann);
             }
         }
 
@@ -109,24 +110,27 @@ int main()
 
     if ("N" == selection)
     {
-        loadMNIST(10000, dataSet);
+        std::string device = "GPU";
 
-        ann.loadFromFile("res/Networks/mnistCL.rna");
+        loadMNIST(100, dataSet);
 
-//        for (unsigned i(0) ; i < 2000 ; i++)
-//        {
-//            i = Random::nextInt(1000, 2000);
-//
-//            std::cout << std::endl << std::endl << i << std::endl;
-//            std::cout << ann.feedForward(dataSet[i].input) << std::endl;
-//            std::cout << ann.feedForward(dataSet[i].input).argmax() << std::endl;
-//            std::cout << dataSet[i].output << std::endl;
-//
-//            displayImage(dataSet[i].input, "Output", 8);
-//        }
+        ann.addLayer( new rna::Reshape({28*28}, device == "GPU") );
+        ann.addLayer( new rna::Linear(28*28, 500) );
+        ann.addLayer( new rna::Tanh() );
+        ann.addLayer( new rna::Linear(500, 10) );
+        ann.addLayer( new rna::Tanh() );
+        ann.addLayer( new rna::LogSoftMax() );
 
-//        ann.train(new rna::NLL(), dataSet, 0.001, 0.9, 10000, 500);
-//        ann.saveToFile("res/Networks/mnist1.rna");
+        if ("GPU" == device)
+            ann.openCL(deviceType);
+
+        Tensor inputB, outputB;
+        rna::randomMinibatch(dataSet, inputB, outputB, 1);
+
+//        Tensor inputB = dataSet[0].input;
+
+        std::cout << inputB << std::endl;
+        std::cout << ann.feedForward(inputB) << std::endl;
 
 //        rna::Reshape r({28*28});
 //
@@ -168,7 +172,7 @@ int main()
 
     if ("MNIST" == selection)
     {
-        std::string device = "GPU";
+        std::string device = "CPU";
 //        std::cout << "Use openCL (CPU/GPU) ? "; std::cin >> device; std::cout << std::endl;
 
         loadMNIST(10000, dataSet);
@@ -181,7 +185,7 @@ int main()
         ann.addLayer( new rna::LogSoftMax() );
 
         if ("GPU" == device)
-            ann.openCL(CL_DEVICE_TYPE_CPU);
+            ann.openCL(deviceType);
 
         std::cout << "Starting training on " << device << std::endl;
 
@@ -236,9 +240,12 @@ int main()
 
         ann.addLayer( new rna::Reshape({1, 1, 28, 28}) );
         ann.addLayer( new rna::Convolutional({1, 28, 28}, {5, 5}, 12) );
-        ann.addLayer( new rna::Reshape({1, 24, 24}) );
-//        ann.addLayer( new rna::MaxPooling() );
+        ann.addLayer( new rna::MaxPooling() );
         ann.addLayer( new rna::Tanh() );
+        ann.addLayer( new rna::Reshape({1, 12, 12}) );
+
+        ann.addLayer( new rna::Reshape({12*12}, true) );
+        ann.addLayer( new rna::Linear(12*12, 10) );
 
 //        ann.addLayer( new rna::Convolutional({1, 24, 24}, {5, 5}, 12) );
 //        ann.addLayer( new rna::Tanh() );
@@ -261,7 +268,7 @@ int main()
 //        std::cout << "Temps: " << (time>1000?time/1000:time) << (time>1000?" s":" ms") << std::endl;
 
 
-        ann.openCL(CL_DEVICE_TYPE_CPU);
+        ann.openCL(deviceType);
         Tensor output = ann.feedForward(dataSet[0].input);
 
         std::cout << output << std::endl;
@@ -274,7 +281,7 @@ int main()
     {
         loadMNIST(10, dataSet);
         ann.loadFromFile("res/Networks/mnistGPU.rna");
-//        ann.openCL();
+//        ann.openCL(deviceType);
 
         Tensor i = dataSet[0].input;
         i.resize({1, 28, 28});

@@ -11,8 +11,7 @@ namespace rna
 Convolutional::Convolutional(coords_t inputDimensions, coords_t kernelDimensions, size_t _outputChannels):
     Layer("Convolutional"),
     weights{_outputChannels, inputDimensions[0], kernelDimensions[0], kernelDimensions[1]},
-    bias{_outputChannels, inputDimensions[1]-kernelDimensions[0]+1, inputDimensions[2]-kernelDimensions[1]+1},
-    kernelGradParam(0)
+    bias{_outputChannels, inputDimensions[1]-kernelDimensions[0]+1, inputDimensions[2]-kernelDimensions[1]+1}
 {
     randomize();
 
@@ -24,8 +23,7 @@ Convolutional::Convolutional(coords_t inputDimensions, coords_t kernelDimensions
 }
 
 Convolutional::Convolutional(std::ifstream& _file):
-    Layer("Convolutional"),
-    kernelGradParam(0)
+    Layer("Convolutional")
 {
     coords_t weightsDimensions(4), biasDimensions(3);
     _file >> weightsDimensions[0] >> weightsDimensions[1] >> weightsDimensions[2] >> weightsDimensions[3];
@@ -57,44 +55,44 @@ Convolutional::Convolutional(std::ifstream& _file):
 
 void Convolutional::randomize()
 {
-    weights.randomize(-1.0, 1.0);
-    bias.randomize(-1.0, 1.0);
+    weights.randomize(Layer::WEIGHT_INIT_MIN, Layer::WEIGHT_INIT_MAX);
+    bias.randomize(Layer::BIAS_INIT_MIN, Layer::BIAS_INIT_MAX);
 }
 
-void Convolutional::openCL(const cl_context& _context, const cl_device_id& _deviceId)
+void Convolutional::openCL(cl::ContextWrapper& _context)
 {
-    if (!kernelForward)
-        kernelForward = loadKernel(_context, _deviceId, "src/OpenCL/convolutional.cl", "convolutionalForward");
+    auto& p = _context.getProgram("res/OpenCL/convolutional.cl");
 
-    if (!kernelBackward)
-        kernelBackward = loadKernel(_context, _deviceId, "src/OpenCL/convolutional.cl", "convolutionalBackward");
+    forwardKernel.create(p, "feedForwardConvolutional");
+    backwardKernel.create(p, "backpropConvolutional");
 
-    if (!kernelGradParam)
-        kernelGradParam = loadKernel(_context, _deviceId, "src/OpenCL/convolutional.cl", "convolutionalParametersGradients");
-
-    weights.openCL(_context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-    bias.openCL(_context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-
-    gradWeight.openCL(_context);
-    gradBias.openCL(_context);
+    paramsGradKernel.create(p, "paramsGradConvolutional");
 
 
-    cl_int inputChannels = weights.size(1);
-    cl_int weightWidth = weights.size(2);
-    cl_int weightHeight = weights.size(3);
+    weights.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    bias.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
 
-    clSetKernelArg(kernelForward, 2, sizeof(cl_mem), &weights.getBuffer());
-    clSetKernelArg(kernelForward, 3, sizeof(cl_mem), &bias.getBuffer());
-    clSetKernelArg(kernelForward, 4, sizeof(cl_int), &inputChannels);
-    clSetKernelArg(kernelForward, 5, sizeof(cl_int), &weightWidth);
-    clSetKernelArg(kernelForward, 6, sizeof(cl_int), &weightHeight);
+    gradWeight.openCL(_context());
+    gradBias.openCL(_context());
+
+
+    forwardKernel.setArg(2, weights);
+    forwardKernel.setArg(3, bias);
+    forwardKernel.setArg(4, weights.size(1));
+    forwardKernel.setArg(5, weights.size(2));
+    forwardKernel.setArg(6, weights.size(3));
+
+    backwardKernel.setArg(2, weights);
+    backwardKernel.setArg(3, weights.size(0));
+    backwardKernel.setArg(4, weights.size(2));
+    backwardKernel.setArg(5, weights.size(3));
 }
 
 void Convolutional::releaseCL()
 {
 	Layer::releaseCL();
 
-    clReleaseKernel(kernelGradParam); kernelGradParam = 0;
+    paramsGradKernel.release();
 }
 
 void Convolutional::feedForwardCPU(const Tensor& _input)
@@ -111,13 +109,13 @@ void Convolutional::feedForwardCL(const cl_command_queue& _commandQueue, const T
     output.resize({_inputBatch.size(0), weights.size(0), _inputBatch.size(2)-weights.size(2)+1, _inputBatch.size(3)-weights.size(3)+1});
     output.openCL(context);
 
-    clSetKernelArg(kernelForward, 0, sizeof(cl_mem), &output.getBuffer());
-    clSetKernelArg(kernelForward, 1, sizeof(cl_mem), &_inputBatch.getBuffer());
+    forwardKernel.setArg(0, output);
+    forwardKernel.setArg(1,_inputBatch);
 
-    for (cl_int i(0) ; i < _inputBatch.size(0) ; i++)
+    for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
     {
-        clSetKernelArg(kernelForward, 7, sizeof(cl_int), &i);
-        execKernel(_commandQueue, kernelForward, bias.size());
+        forwardKernel.setArg(7, i);
+        forwardKernel.enqueue(_commandQueue, bias.size());
     }
 
 	output.readBuffer(_commandQueue);
@@ -129,6 +127,42 @@ void Convolutional::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 
     convGradWeight(gradWeight, _gradOutput, _input);
     gradBias += _gradOutput;
+}
+
+void Convolutional::backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+{
+    cl_context context;
+    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+
+    gradInput.resizeAs(_inputBatch);
+    gradInput.openCL(context);
+
+    // gradInput
+    backwardKernel.setArg(0, gradInput);
+    backwardKernel.setArg(1,_gradOutputBatch);
+
+    for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
+    {
+        backwardKernel.setArg(6, i);
+        backwardKernel.enqueue(_commandQueue, {gradInput.size(1), gradInput.size(2), gradInput.size(3)});
+    }
+
+	gradInput.readBuffer(_commandQueue);
+
+    // gradWeight, gradBias
+//    paramsGradKernel.setArg(0, gradWeight);
+//    paramsGradKernel.setArg(1, gradBias);
+//    paramsGradKernel.setArg(2, _gradOutputBatch);
+//    paramsGradKernel.setArg(3, _inputBatch);
+//
+//    for (int i(0) ; i < (int)weights.size(0) ; i++)
+//    {
+//        paramsGradKernel.setArg(6, i);
+//        paramsGradKernel.enqueue(_commandQueue, {gradInput.size(1), gradInput.size(2), gradInput.size(3)});
+//    }
+//
+//	gradWeight.readBuffer(_commandQueue);
+//	gradBias.readBuffer(_commandQueue);
 }
 
 void Convolutional::zeroParametersGradients()

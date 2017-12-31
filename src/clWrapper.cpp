@@ -1,103 +1,195 @@
 #include "clWrapper.h"
 
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 
 #include "Utility/Error.h"
-#include "Utility/util.h"
 
 namespace rna
 {
+namespace cl
+{
 
-std::map<std::string, clProgramWrapper> clProgramWrapper::programs;
-
-clProgramWrapper::clProgramWrapper():
-    id(0)
+ContextWrapper::ContextWrapper():
+    deviceId(0)
 { }
 
-clProgramWrapper::~clProgramWrapper()
+ContextWrapper::ContextWrapper(const ContextWrapper& c):
+    Wrapper<cl_context>()
 {
-	clReleaseProgram(id);
+    create(c.getDeviceId());
 }
 
-cl_program clProgramWrapper::get(cl_context _context, cl_device_id _deviceId, const std::string& _program)
-{
-    clProgramWrapper& p = programs[_program];
-    if (p.id == 0)
-        p.load(_context, _deviceId, _program);
-
-    return p.id;
-}
-
-void clProgramWrapper::load(cl_context _context, cl_device_id _deviceId, const std::string& _program)
+void ContextWrapper::create(cl_device_type _deviceType)
 {
     cl_int error;
 
-	std::ifstream in(_program);
-	if (!in)
-        Error::add(ErrorType::FILE_NOT_FOUND, _program);
+    cl_platform_id platform_id;
+    error = clGetPlatformIDs(1, &platform_id, nullptr);
+    if (error != CL_SUCCESS)
+        Error::add(ErrorType::WARNING, "OpenCL: Failed to get platforms with error code " + toString(error));
 
+    error = clGetDeviceIDs(platform_id, _deviceType, 1, &deviceId, nullptr);
+    if (error != CL_SUCCESS)
+        Error::add(ErrorType::WARNING, "OpenCL: Failed to get devices with error code " + toString(error));
+
+    // Print version
+    if (true)
+    {
+        cl_uint deviceIdCount = 0;
+        clGetDeviceInfo(deviceId, CL_DEVICE_VERSION, 0, nullptr, &deviceIdCount);
+
+        char* v = (char*)malloc(deviceIdCount*sizeof(char));
+        clGetDeviceInfo(deviceId, CL_DEVICE_VERSION, deviceIdCount, v, nullptr);
+
+        std::cout << "OpenCL version: " << v << std::endl;
+
+        free(v);
+    }
+
+    create(deviceId);
+}
+
+void ContextWrapper::create(cl_device_id _deviceId)
+{
+    if (id || !_deviceId)
+        return;
+
+    cl_int error;
+
+    deviceId = _deviceId;
+
+    id = clCreateContext(nullptr, 1, &deviceId, nullptr, nullptr, &error);
+    if (error != CL_SUCCESS || id == nullptr)
+        Error::add(ErrorType::WARNING, "OpenCL: Failed to create id with error code " + toString(error));
+}
+
+void ContextWrapper::release()
+{
+    clReleaseContext(id);
+    id = 0;
+    deviceId = 0;
+
+    programs.clear();
+}
+
+const ProgramWrapper& ContextWrapper::getProgram(const std::string& _path)
+{
+//    auto element = programs.emplace(std::piecewise_construct, std::make_tuple(_path), std::make_tuple(*this, _path));
+//
+//    return &element.first->second;
+    ProgramWrapper& program = programs[_path];
+    program.create(*this, _path);
+
+    return program;
+}
+
+cl_device_id ContextWrapper::getDeviceId() const
+{
+    return deviceId;
+}
+
+
+/// ProgramWrapper
+void ProgramWrapper::create(const ContextWrapper& _context, const std::string& _path)
+{
+    if (id)
+        return;
+
+    cl_int error;
+
+	std::ifstream in(_path);
+	if (!in)
+        Error::add(ErrorType::FILE_NOT_FOUND, _path);
+
+    // Read file
 	std::string src( (std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>() );
     const char* strings = src.c_str();
     const size_t length = src.size();
 
-
-    id = clCreateProgramWithSource(_context, 1, &strings, &length, &error);
+    // Create Program
+    id = clCreateProgramWithSource(_context(), 1, &strings, &length, &error);
     if (error != CL_SUCCESS)
-        Error::add(ErrorType::UNKNOWN_ERROR, "clCreateProgramWithSource() error: " + toString(error));
+        Error::add(ErrorType::UNKNOWN_ERROR, "Error " + toString(error) + " while creating program: " + _path);
 
+    // Compile program
+    auto deviceId = _context.getDeviceId();
+    error = clBuildProgram(id, 1, &deviceId, nullptr, nullptr, nullptr);//"-cl-std=CL2.0"
 
-    error = clBuildProgram(id, 1, &_deviceId, nullptr, nullptr, nullptr);//"-cl-std=CL2.0"
-    if (error != CL_SUCCESS)
+    if (error == CL_BUILD_PROGRAM_FAILURE)
     {
         size_t logLength;
-        error = clGetProgramBuildInfo(id, _deviceId, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logLength);
+        error = clGetProgramBuildInfo(id, deviceId, CL_PROGRAM_BUILD_LOG, 0, nullptr, &logLength);
 
         char* log = new char[logLength];
-        error = clGetProgramBuildInfo(id, _deviceId, CL_PROGRAM_BUILD_LOG, logLength, log, nullptr);
+        error = clGetProgramBuildInfo(id, deviceId, CL_PROGRAM_BUILD_LOG, logLength, log, nullptr);
 
         std::cout << log << std::endl;
         delete[] log;
 
-        Error::add(ErrorType::USER_ERROR, "clBuildProgram() error");
+        Error::add(ErrorType::USER_ERROR, "Build failed for: " + _path);
     }
+    else if (error != CL_SUCCESS)
+        Error::add(ErrorType::UNKNOWN_ERROR, "Error " + toString(error) + " while building program: " + _path);
 }
 
-cl_kernel loadKernel(const cl_context& _context, const cl_device_id& _deviceId, const std::string& _program, const std::string& _kernel)
+void ProgramWrapper::release()
 {
-    cl_int error;
-    cl_program program = clProgramWrapper::get(_context, _deviceId, _program);
+	clReleaseProgram(id);
+    id = 0;
+}
 
-    cl_kernel kernel = clCreateKernel(program, _kernel.c_str(), &error);
+
+/// KernelWrapper
+void KernelWrapper::create(const ProgramWrapper& _program, const std::string& _name)
+{
+    if (id)
+        return;
+
+    cl_int error;
+
+    id = clCreateKernel(_program(), _name.c_str(), &error);
+
     if (error != CL_SUCCESS)
     {
         if (error == CL_INVALID_KERNEL_NAME)
-            Error::add(ErrorType::USER_ERROR, "Invalid kernel name: " + _kernel);
+            Error::add(ErrorType::USER_ERROR, "Invalid kernel name: " + _name);
         else
             Error::add(ErrorType::UNKNOWN_ERROR, "clCreateKernel() error: " + toString(error));
     }
-
-    return kernel;
 }
 
-void execKernel(const cl_command_queue& _commandQueue, const cl_kernel& _kernel, const coords_t& _globalWorkSize)
+void KernelWrapper::release()
 {
-	cl_int error = clEnqueueNDRangeKernel(_commandQueue, _kernel, _globalWorkSize.size(), nullptr, _globalWorkSize.data(), nullptr, 0, nullptr, nullptr);
+	clReleaseKernel(id);
+    id = 0;
+}
+
+void KernelWrapper::setArg(cl_uint _index, size_t _size, const void* _value)
+{
+    clSetKernelArg(id, _index, _size, _value);
+}
+
+void KernelWrapper::setArg(cl_uint _index, const Tensor& _value)
+{
+    clSetKernelArg(id, _index, sizeof(cl_mem), &_value.getBuffer());
+}
+
+void KernelWrapper::setArg(cl_uint _index, int _value)
+{
+    clSetKernelArg(id, _index, sizeof(int), &_value);
+}
+
+void KernelWrapper::enqueue(const cl_command_queue& _commandQueue, const coords_t& _globalWorkSize)
+{
+	cl_int error = clEnqueueNDRangeKernel(_commandQueue, id, _globalWorkSize.size(), nullptr, _globalWorkSize.data(), nullptr, 0, nullptr, nullptr);
 
 	if (error != CL_SUCCESS)
     {
-        Error::add(ErrorType::USER_ERROR, "execKernel: " + toString(error));
+        Error::add(ErrorType::USER_ERROR, "Kernel enqueue: " + toString(error));
     }
 }
 
-void execKernel(const cl_command_queue& _commandQueue, const cl_kernel& _kernel, const coords_t& _globalWorkSize, const coords_t& _globalWorkOffset)
-{
-	cl_int error = clEnqueueNDRangeKernel(_commandQueue, _kernel, _globalWorkSize.size(), _globalWorkOffset.data(), _globalWorkSize.data(), nullptr, 0, nullptr, nullptr);
-
-	if (error != CL_SUCCESS)
-    {
-        Error::add(ErrorType::USER_ERROR, "execKernel: " + toString(error));
-    }
 }
-
 }

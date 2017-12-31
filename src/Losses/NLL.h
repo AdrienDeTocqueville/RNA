@@ -14,7 +14,7 @@ class NLL: public LossFunction
         virtual void   getGradientGPU(const cl_command_queue& _commandQueue, const Tensor& _estimationBatch, const Tensor& _targetBatch) const;
 
     private:
-        virtual void openCL(const cl_context& _context, const cl_device_id& _deviceId);
+        virtual void openCL(cl::ContextWrapper& _context);
 };
 
 }

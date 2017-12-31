@@ -19,9 +19,10 @@ class LossFunction
         virtual void   getGradientGPU(const cl_command_queue& _commandQueue, const Tensor& _estimationBatch, const Tensor& _targetBatch) const = 0;
 
     protected:
-        virtual void openCL(const cl_context& _context, const cl_device_id& _deviceId) = 0;
+        virtual void openCL(cl::ContextWrapper& _context) = 0;
+        virtual void releaseCL();
 
-        cl_kernel lossKernel, gradientKernel;
+        cl::KernelWrapper lossKernel, gradientKernel;
 };
 
 }

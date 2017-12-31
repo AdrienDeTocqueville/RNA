@@ -9,8 +9,7 @@ namespace rna
 
 Linear::Linear(size_t _inputSize, size_t _outputSize):
     Layer("Linear"),
-    weights{_outputSize, _inputSize}, bias{_outputSize},
-    kernelGradParam(0)
+    weights{_outputSize, _inputSize}, bias{_outputSize}
 {
     randomize();
 
@@ -22,8 +21,7 @@ Linear::Linear(size_t _inputSize, size_t _outputSize):
 }
 
 Linear::Linear(std::ifstream& _file):
-    Layer("Linear"),
-    kernelGradParam(0)
+    Layer("Linear")
 {
     size_t inputSize, outputSize;
     _file >> inputSize >> outputSize;
@@ -49,42 +47,40 @@ Linear::Linear(std::ifstream& _file):
 
 void Linear::randomize()
 {
-    weights.randomize(-1.0, 1.0);
-    bias.randomize(-1.0, 1.0);
+	// TODO: Init weights with parametrable values
+    weights.randomize(Layer::WEIGHT_INIT_MIN, Layer::WEIGHT_INIT_MAX);
+    bias.randomize(Layer::BIAS_INIT_MIN, Layer::BIAS_INIT_MAX);
 }
 
-void Linear::openCL(const cl_context& _context, const cl_device_id& _deviceId)
+void Linear::openCL(cl::ContextWrapper& _context)
 {
-    if (!kernelForward)
-        kernelForward = loadKernel(_context, _deviceId, "src/OpenCL/linear.cl", "linearForward");
+    auto& p = _context.getProgram("res/OpenCL/linear.cl");
 
-    if (!kernelBackward)
-        kernelBackward = loadKernel(_context, _deviceId, "src/OpenCL/linear.cl", "linearBackward");
+    forwardKernel.create(p, "feedForwardLinear");
+    backwardKernel.create(p, "backpropLinear");
+    paramsGradKernel.create(p, "paramsGradLinear");
 
-    if (!kernelGradParam)
-        kernelGradParam = loadKernel(_context, _deviceId, "src/OpenCL/linear.cl", "linearParametersGradients");
+    weights.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    bias.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
 
-    weights.openCL(_context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-    bias.openCL(_context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-
-    gradWeight.openCL(_context);
-    gradBias.openCL(_context);
+    gradWeight.openCL(_context());
+    gradBias.openCL(_context());
 
 
-    clSetKernelArg(kernelForward, 2, sizeof(cl_mem), &weights.getBuffer());
-    clSetKernelArg(kernelBackward, 2, sizeof(cl_mem), &weights.getBuffer());
+    forwardKernel.setArg(2, weights);
+    backwardKernel.setArg(2, weights);
 
-    clSetKernelArg(kernelForward, 3, sizeof(cl_mem), &bias.getBuffer());
+    forwardKernel.setArg(3, bias);
 
-    clSetKernelArg(kernelGradParam, 0, sizeof(cl_mem), &gradWeight.getBuffer());
-    clSetKernelArg(kernelGradParam, 1, sizeof(cl_mem), &gradBias.getBuffer());
+    paramsGradKernel.setArg(0, gradWeight);
+    paramsGradKernel.setArg(1, gradBias);
 }
 
 void Linear::releaseCL()
 {
 	Layer::releaseCL();
 
-    clReleaseKernel(kernelGradParam); kernelGradParam = 0;
+    paramsGradKernel.release();
 }
 
 void Linear::feedForwardCPU(const Tensor& _input)
@@ -112,13 +108,11 @@ void Linear::feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& 
     output.resize({_inputBatch.size(0), bias.size(0)});
     output.openCL(context);
 
-    cl_int inputWidth = _inputBatch.size(1);
+    forwardKernel.setArg(0, output);
+    forwardKernel.setArg(1,_inputBatch);
+    forwardKernel.setArg(4,_inputBatch.size(1));
 
-    clSetKernelArg(kernelForward, 0, sizeof(cl_mem), &output.getBuffer());
-    clSetKernelArg(kernelForward, 1, sizeof(cl_mem), &_inputBatch.getBuffer());
-    clSetKernelArg(kernelForward, 4, sizeof(cl_int), &inputWidth);
-
-    execKernel(_commandQueue, kernelForward, { output.size(0), output.size(1) });
+    forwardKernel.enqueue(_commandQueue, { output.size(0), output.size(1) });
 	output.readBuffer(_commandQueue);
 }
 
@@ -152,25 +146,21 @@ void Linear::backpropCL(const cl_command_queue& _commandQueue, const Tensor& _in
     gradInput.resizeAs({_gradOutputBatch.size(0), weights.size(1)});
     gradInput.openCL(context);
 
-    cl_int gradOutputHeight = _gradOutputBatch.size(0);
-    cl_int gradOutputWidth = _gradOutputBatch.size(1);
-    cl_int inputWidth = _inputBatch.size(1);
-
     // gradInput
-    clSetKernelArg(kernelBackward, 0, sizeof(cl_mem), &gradInput.getBuffer());
-    clSetKernelArg(kernelBackward, 1, sizeof(cl_mem), &_gradOutputBatch.getBuffer());
-    clSetKernelArg(kernelBackward, 3, sizeof(cl_int), &gradOutputWidth);
+    backwardKernel.setArg(0, gradInput);
+    backwardKernel.setArg(1,_gradOutputBatch);
+    backwardKernel.setArg(3,_gradOutputBatch.size(1));
 
-    execKernel(_commandQueue, kernelBackward, { gradInput.size(0), gradInput.size(1) });
+    backwardKernel.enqueue(_commandQueue, { gradInput.size(0), gradInput.size(1) });
 	gradInput.readBuffer(_commandQueue);
 
     // gradWeight, gradBias
-    clSetKernelArg(kernelGradParam, 2, sizeof(cl_mem), &_gradOutputBatch.getBuffer());
-    clSetKernelArg(kernelGradParam, 3, sizeof(cl_mem), &_inputBatch.getBuffer());
-    clSetKernelArg(kernelGradParam, 4, sizeof(cl_int), &gradOutputHeight);
-    clSetKernelArg(kernelGradParam, 5, sizeof(cl_int), &inputWidth);
+    paramsGradKernel.setArg(2, _gradOutputBatch);
+    paramsGradKernel.setArg(3, _inputBatch);
+    paramsGradKernel.setArg(4, _gradOutputBatch.size(0));
+    paramsGradKernel.setArg(5, _inputBatch.size(1));
 
-    execKernel(_commandQueue, kernelGradParam, { _gradOutputBatch.size(1) });
+    backwardKernel.enqueue(_commandQueue, { _gradOutputBatch.size(1) });
 	gradWeight.readBuffer(_commandQueue);
 	gradBias.readBuffer(_commandQueue);
 }

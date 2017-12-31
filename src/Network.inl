@@ -74,11 +74,13 @@ void Network::trainCL(Optimizer<L>& _optimizer, const DataSet& _dataSet, unsigne
     {
         zeroParametersGradients();
 
+        // TODO: Don't bring buffers back to CPU
         {
             randomMinibatch(_dataSet, inputBatch, outputBatch, _minibatchSize);
 
             Tensor output = feedForwardCL(inputBatch);
 
+            // TODO: Use OpenCL
             error += _optimizer.loss.getLoss(output, outputBatch);
             Tensor gradient =_optimizer.loss.getGradient(output, outputBatch);
 

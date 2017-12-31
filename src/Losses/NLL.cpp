@@ -5,13 +5,12 @@ namespace rna
 
 // TODO: Finish this class
 
-void NLL::openCL(const cl_context& _context, const cl_device_id& _deviceId)
+void NLL::openCL(cl::ContextWrapper& _context)
 {
-    if (!lossKernel)
-        lossKernel = loadKernel(_context, _deviceId, "src/OpenCL/losses.cl", "mseGradient");
+    auto& p = _context.getProgram("res/OpenCL/losses.cl");
 
-    if (!gradientKernel)
-        gradientKernel = loadKernel(_context, _deviceId, "src/OpenCL/losses.cl", "mseGradient");
+    lossKernel.create(p, "nllLoss");
+    gradientKernel.create(p, "nllGradient");
 }
 
 Tensor::value_type NLL::getLoss(const Tensor& _estimation, const Tensor& _target) const

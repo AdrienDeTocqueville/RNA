@@ -26,7 +26,7 @@ class Linear: public Layer
         virtual void saveToFile(std::ofstream& _file) const override;
 
     private:
-        virtual void openCL(const cl_context& _context, const cl_device_id& _deviceId) override;
+        virtual void openCL(cl::ContextWrapper& _context) override;
         virtual void releaseCL() override;
 
         Tensor weights;
@@ -38,7 +38,7 @@ class Linear: public Layer
         Tensor deltaWeight;
         Tensor deltaBias;
 
-        cl_kernel kernelGradParam;
+        cl::KernelWrapper paramsGradKernel;
 };
 
 }

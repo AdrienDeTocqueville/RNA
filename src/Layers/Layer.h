@@ -5,12 +5,6 @@
 namespace rna
 {
 
-Tensor::value_type sigmoid(Tensor::value_type _x);
-
-Tensor::value_type dSigmoid(Tensor::value_type _x);
-Tensor::value_type dtanh(Tensor::value_type _x);
-
-
 class Layer
 {
     friend class Network;
@@ -34,46 +28,21 @@ class Layer
 
         virtual void saveToFile(std::ofstream& _file) const;
 
+        static Tensor::value_type WEIGHT_INIT_MIN;
+        static Tensor::value_type WEIGHT_INIT_MAX;
+
+        static Tensor::value_type BIAS_INIT_MIN;
+        static Tensor::value_type BIAS_INIT_MAX;
+
     protected:
-        virtual void openCL(const cl_context&, const cl_device_id&) {}
+        virtual void openCL(cl::ContextWrapper&) {}
         virtual void releaseCL();
 
         std::string type;
 
         Tensor output, gradInput;
 
-        cl_kernel kernelForward, kernelBackward;
+        cl::KernelWrapper forwardKernel, backwardKernel;
 };
-
-class Tanh: public Layer
-{
-    public:
-        Tanh(): Layer("Tanh") {}
-
-        virtual void feedForwardCPU(const Tensor& _input);
-        virtual void feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch);
-
-        virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
-        virtual void backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
-
-    private:
-        virtual void openCL(const cl_context& _context, const cl_device_id& _deviceId) override;
-};
-
-class ReLU: public Layer
-{
-    public:
-        ReLU(): Layer("ReLU") {}
-
-        virtual void feedForwardCPU(const Tensor& _input);
-        virtual void feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch) override;
-
-        virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
-        virtual void backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
-
-    private:
-        virtual void openCL(const cl_context& _context, const cl_device_id& _deviceId) override;
-};
-
 
 }

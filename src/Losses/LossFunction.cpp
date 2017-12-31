@@ -4,15 +4,17 @@ namespace rna
 {
 
 LossFunction::LossFunction()
-{
-    lossKernel = 0;
-    gradientKernel = 0;
-}
+{ }
 
 LossFunction::~LossFunction()
 {
-    clReleaseKernel(lossKernel);
-    clReleaseKernel(gradientKernel);
+    releaseCL();
+}
+
+void LossFunction::releaseCL()
+{
+	lossKernel.release();
+	gradientKernel.release();
 }
 
 }

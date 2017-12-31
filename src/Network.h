@@ -1,10 +1,10 @@
 #pragma once
 
-#include <CL/opencl.h>
 #include <string>
 
 #include "Layers/Layer.h"
 #include "Optimizer.h"
+#include "clWrapper.h"
 
 
 namespace rna
@@ -36,7 +36,7 @@ class Network
     public:
         Network();
         Network(Network&& _network);
-        Network(const Network& _network);
+//        Network(const Network& _network);
 
         ~Network();
 
@@ -55,7 +55,7 @@ class Network
         void openCL(cl_device_type _deviceType = CL_DEVICE_TYPE_CPU);
         void releaseCL();
 
-        // TODO: Network::feedforward return ref
+        // TODO: Should not copy return value
         Tensor feedForward(const Tensor& _input);
         Tensor feedForward(Tensor& _input);
 
@@ -88,8 +88,7 @@ class Network
         template<typename L>
         void trainCL(Optimizer<L>& _optimizer, const DataSet& _dataSet, unsigned _maxEpochs, unsigned _epochsBetweenReports, unsigned _minibatchSize);
 
-        cl_context context;
-        cl_device_id deviceId;
+        cl::ContextWrapper context;
 
         std::vector<Layer*> layers;
 
