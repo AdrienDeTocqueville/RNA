@@ -28,13 +28,10 @@ void Activation::feedForwardCPU(const Tensor& _input)
         output[i] = f(_input[i]);
 }
 
-void Activation::feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch)
+void Activation::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
-
     output.resizeAs(_inputBatch);
-    output.openCL(context);
+    output.openCL(_commandQueue.getContext());
 
     cl_int inputWidth = _inputBatch.nElements() / _inputBatch.size(0); // TODO: use strides
 
@@ -43,39 +40,35 @@ void Activation::feedForwardCL(const cl_command_queue& _commandQueue, const Tens
     forwardKernel.setArg(2, inputWidth);
 
     forwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
-	output.readBuffer(_commandQueue);
 }
 
 void Activation::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
-    gradInput.resizeAs(_input);
+    inputGrad.resizeAs(_input);
 
-    for (unsigned i(0) ; i < gradInput.nElements() ; i++)
-        gradInput[i] = df(_input[i]) * _gradOutput[i];
+    for (unsigned i(0) ; i < inputGrad.nElements() ; i++)
+        inputGrad[i] = df(_input[i]) * _gradOutput[i];
 }
 
-void Activation::backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void Activation::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
-
-    gradInput.resizeAs(_inputBatch);
-    gradInput.openCL(context);
+    inputGrad.resizeAs(_inputBatch);
+    inputGrad.openCL(_commandQueue.getContext());
 
     cl_int inputWidth = _inputBatch.nElements() / _inputBatch.size(0); // TODO: use strides
 
-    backwardKernel.setArg(0, gradInput);
+    backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_inputBatch);
     backwardKernel.setArg(2,_gradOutputBatch);
     backwardKernel.setArg(3, sizeof(cl_int), &inputWidth);
 
     backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
-	gradInput.readBuffer(_commandQueue);
+	inputGrad.readBuffer(_commandQueue);
 }
 
 
 /// Tanh
-void Tanh::openCL(cl::ContextWrapper& _context)
+void Tanh::openCL(cl::Context& _context)
 {
     auto& p = _context.getProgram("res/OpenCL/activations.cl");
 
@@ -97,7 +90,7 @@ Tensor::value_type Tanh::df(Tensor::value_type _value)
 
 
 /// ReLU
-void ReLU::openCL(cl::ContextWrapper& _context)
+void ReLU::openCL(cl::Context& _context)
 {
     auto& p = _context.getProgram("res/OpenCL/activations.cl");
 

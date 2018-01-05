@@ -22,7 +22,7 @@ const auto deviceType = CL_DEVICE_TYPE_ALL;
 
 int main()
 {
-    std::string selection = "N";
+    std::string selection = "test3";
 
     if (selection.empty())
     {
@@ -44,7 +44,7 @@ int main()
 
     if ("DQN" == selection)
     {
-        unsigned numActions = 2;
+        /*unsigned numActions = 2;
 
         unsigned episodes = 10000;
         unsigned memSize = 10000;
@@ -60,7 +60,7 @@ int main()
         ann.addLayer( new rna::Linear(HU, 2) );
         ann.addLayer( new rna::Tanh() );
 
-//        rna::Network target(ann);
+        rna::Network target(ann);
 
         rna::Memory memory;
         int step = 0;
@@ -95,8 +95,8 @@ int main()
                 state = nextState;
 
                 step++;
-//                if (step % targetUpdate == 0)
-//                    target = rna::Network(ann);
+                if (step % targetUpdate == 0)
+                    target = rna::Network(ann);
             }
         }
 
@@ -106,6 +106,7 @@ int main()
 //            Tensor output = ann.feedForward(input); output.round(2);
 //            std::cout << input << ": " << output << std::endl;
 //        }
+    */
     }
 
     if ("N" == selection)
@@ -113,24 +114,33 @@ int main()
         std::string device = "GPU";
 
         loadMNIST(100, dataSet);
+        for (rna::Example& e: dataSet)
+            e.input.resize({6, 6});
 
-        ann.addLayer( new rna::Reshape({28*28}, device == "GPU") );
-        ann.addLayer( new rna::Linear(28*28, 500) );
+
+        ann.addLayer( new rna::Reshape({6*6}, device == "GPU") );
+        ann.addLayer( new rna::Linear(6*6, 12) );
         ann.addLayer( new rna::Tanh() );
-        ann.addLayer( new rna::Linear(500, 10) );
+        ann.addLayer( new rna::Linear(12, 10) );
         ann.addLayer( new rna::Tanh() );
         ann.addLayer( new rna::LogSoftMax() );
 
         if ("GPU" == device)
             ann.openCL(deviceType);
 
-        Tensor inputB, outputB;
-        rna::randomMinibatch(dataSet, inputB, outputB, 1);
+        rna::SGD trainer(ann);
+            trainer.setLoss<rna::NLL>();
+            trainer.setOptimizer<rna::Momentum>(0.1f, 0.9f);
+
+        trainer.train(dataSet, 1000, 100, 1);
+
+//        Tensor inputB, outputB;
+//        rna::randomMinibatch(dataSet, inputB, outputB, 1);
 
 //        Tensor inputB = dataSet[0].input;
 
-        std::cout << inputB << std::endl;
-        std::cout << ann.feedForward(inputB) << std::endl;
+//        std::cout << inputB << std::endl;
+//        std::cout << ann.feedForward(inputB) << std::endl;
 
 //        rna::Reshape r({28*28});
 //
@@ -155,9 +165,12 @@ int main()
         ann.addLayer( new rna::Linear(HU, 1) );
         ann.addLayer( new rna::Tanh() );
 
-        rna::Optimizer<rna::MSE> op(0.001f, 0.9f);
+        rna::SGD trainer(ann);
+            trainer.setLoss<rna::MSE>();
+            trainer.setOptimizer<rna::Momentum>(0.001f, 0.9f);
 
-        ann.train(op, dataSet, 5000, 500);
+        trainer.train(dataSet, 5000, 500);
+
         ann.saveToFile("res/Networks/xor.rna");
 
         std::cout << ann.feedForward(Vector({-0.5, -0.5})) << std::endl; // -1.0
@@ -179,9 +192,9 @@ int main()
 
         ann.addLayer( new rna::Reshape({28*28}, device == "GPU") );
         ann.addLayer( new rna::Linear(28*28, 500) );
-        ann.addLayer( new rna::Tanh() );
+        ann.addLayer( new rna::ReLU() );
         ann.addLayer( new rna::Linear(500, 10) );
-        ann.addLayer( new rna::Tanh() );
+        ann.addLayer( new rna::ReLU() );
         ann.addLayer( new rna::LogSoftMax() );
 
         if ("GPU" == device)
@@ -189,9 +202,12 @@ int main()
 
         std::cout << "Starting training on " << device << std::endl;
 
-        rna::Optimizer<rna::NLL> op(0.01f, 0.1f);
+        rna::SGD trainer(ann);
+            trainer.setLoss<rna::NLL>();
+            trainer.setOptimizer<rna::Momentum>(0.1f, 0.9f);
 
-        ann.train(op, dataSet, 1000, 100, 32);
+        trainer.train(dataSet, 1000, 100, 32);
+
         ann.saveToFile("res/Networks/mnist" + device + ".rna");
 
         validateMNIST(ann, dataSet);
@@ -225,9 +241,11 @@ int main()
 
         std::cout << "ANN created" << std::endl;
 
-        rna::Optimizer<rna::NLL> op(0.01f, 0.1f);
+        rna::SGD trainer(ann);
+            trainer.setLoss<rna::NLL>();
+            trainer.setOptimizer<rna::Momentum>(0.1f, 0.9f);
 
-        ann.train(op, dataSet, 1000, 100, 32);
+        trainer.train(dataSet, 1000, 100, 32);
 
         ann.saveToFile("res/Networks/leNet1.rna");
     }
@@ -295,6 +313,15 @@ int main()
         std::cout << "Temps: " << (time>1000?time/1000:time) << (time>1000?" s":" ms") << std::endl;
 
         return 0;
+    }
+
+    if ("TEST3" == selection)
+    {
+        ann.loadFromFile("res/Networks/xor.rna");
+        ann.openCL(deviceType);
+
+        std::cout << ann.feedForward(Matrix({{-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5}})) << std::endl << std::endl; // -1.0
+
     }
 
     return 0;
@@ -506,16 +533,6 @@ void SARSALambda()
 
 void QLearning()
 {
-    rna::DataSet dataSet;
-    rna::Network ann;
-
-    unsigned HU = 10;
-    ann.addLayer( new rna::Linear(1, HU) );
-    ann.addLayer( new rna::Tanh() );
-    ann.addLayer( new rna::Linear(HU, 2) );
-    ann.addLayer( new rna::Tanh() );
-
-
     Tensor Q({9, 2}, 0.0);
 
     unsigned episodes = 10000;
@@ -556,27 +573,6 @@ void QLearning()
 
             step++;
         }
-    }
-
-    for (unsigned i(0); i < 9; i++)
-    {
-        rna::Example e;
-        e.input = Vector({(Tensor::value_type)i});
-        e.output = Vector({Q(i, 0), Q(i, 1)});
-
-        dataSet.push_back(e);
-
-        std::cout << dataSet[i].input << ": " << dataSet[i].output << std::endl;
-    }
-
-    rna::Optimizer<rna::MSE> op(0.001f, 0.9f);
-
-    ann.train(op, dataSet, 5000, 5000, 32);
-
-    for (unsigned i(0); i < 9; i++)
-    {
-        Tensor output = ann.feedForward(Vector({(Tensor::value_type)i})); output.round(2);
-        std::cout << Vector({(Tensor::value_type)i}) << ": " << output << std::endl;
     }
 }
 

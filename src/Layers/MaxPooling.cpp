@@ -3,7 +3,7 @@
 namespace rna
 {
 
-void MaxPooling::openCL(cl::ContextWrapper& _context)
+void MaxPooling::openCL(cl::Context& _context)
 {
     auto& p = _context.getProgram("res/OpenCL/maxPooling.cl");
 
@@ -36,16 +36,13 @@ void MaxPooling::feedForwardCPU(const Tensor& _input)
     }
 }
 
-void MaxPooling::feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch)
+void MaxPooling::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
-
     output.resize( {_inputBatch.size(0), _inputBatch.size(1), _inputBatch.size(2) / 2, _inputBatch.size(3) / 2} );
-    output.openCL(context);
+    output.openCL(_commandQueue.getContext());
 
     indices.resizeAs(output);
-    indices.openCL(context);
+    indices.openCL(_commandQueue.getContext());
 
     forwardKernel.setArg(0, output);
     forwardKernel.setArg(1, indices);
@@ -56,15 +53,12 @@ void MaxPooling::feedForwardCL(const cl_command_queue& _commandQueue, const Tens
         forwardKernel.setArg(3, i);
         forwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
     }
-
-	output.readBuffer(_commandQueue);
-	indices.readBuffer(_commandQueue);
 }
 
 void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
-    gradInput.resizeAs(_input);
-    gradInput.fill(0.0);
+    inputGrad.resizeAs(_input);
+    inputGrad.fill(0.0);
 
 
     for (unsigned c(0) ; c < indices.size(0) ; c++)
@@ -83,22 +77,19 @@ void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
                 coord[2]++;
             }
 
-            gradInput(coord) = _gradOutput(c, i, j);
+            inputGrad(coord) = _gradOutput(c, i, j);
         }
     }
 }
 
-void MaxPooling::backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void MaxPooling::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+    inputGrad.resizeAs(_inputBatch);
+    inputGrad.fill(0.0);
+    inputGrad.openCL(_commandQueue.getContext());
 
-    gradInput.resizeAs(_inputBatch);
-    gradInput.fill(0.0);
-    gradInput.openCL(context);
-
-    // gradInput
-    backwardKernel.setArg(0, gradInput);
+    // inputGrad
+    backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_gradOutputBatch);
     backwardKernel.setArg(2, indices);
 
@@ -108,7 +99,7 @@ void MaxPooling::backpropCL(const cl_command_queue& _commandQueue, const Tensor&
         backwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
     }
 
-	gradInput.readBuffer(_commandQueue);
+	inputGrad.readBuffer(_commandQueue);
 }
 
 }

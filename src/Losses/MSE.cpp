@@ -5,12 +5,12 @@ namespace rna
 
 // TODO: Finish this class
 
-void MSE::openCL(cl::ContextWrapper& _context)
+void MSE::openCL(cl::Context& _context)
 {
     auto& p = _context.getProgram("res/OpenCL/losses.cl");
 
-    lossKernel.create(p, "mseLoss");
-    gradientKernel.create(p, "mseGradient");
+    lossKernel.create(p, "lossMSE");
+    gradientKernel.create(p, "gradientMSE");
 }
 
 Tensor::value_type MSE::getLoss(const Tensor& _estimation, const Tensor& _target) const
@@ -22,13 +22,17 @@ Tensor::value_type MSE::getLoss(const Tensor& _estimation, const Tensor& _target
         return (_estimation - _target).length2();
 }
 
-Tensor MSE::getGradient(const Tensor& _estimation, const Tensor& _target) const
+const Tensor& MSE::getGradient(const Tensor& _estimation, const Tensor& _target)
 {
-    return Tensor::value_type(2.0) * (_estimation - _target);
+    gradient = Tensor::value_type(2.0) * (_estimation - _target);
+
+    return gradient;
 }
 
-void MSE::getGradientGPU(const cl_command_queue& _commandQueue, const Tensor& _estimationBatch, const Tensor& _targetBatch) const
+const Tensor& MSE::getGradientCL(cl::CommandQueue& _commandQueue, const Tensor& _estimationBatch, const Tensor& _targetBatch)
 {
+
+    return gradient;
 }
 
 }

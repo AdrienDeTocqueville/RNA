@@ -5,7 +5,7 @@
 namespace rna
 {
 
-void LogSoftMax::openCL(cl::ContextWrapper& _context)
+void LogSoftMax::openCL(cl::Context& _context)
 {
     auto& p = _context.getProgram("res/OpenCL/logSoftMax.cl");
 
@@ -51,25 +51,21 @@ void LogSoftMax::feedForwardCPU(const Tensor& _input)
     }
 }
 
-void LogSoftMax::feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch)
+void LogSoftMax::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
-
     output.resizeAs(_inputBatch);
-    output.openCL(context);
+    output.openCL(_commandQueue.getContext());
 
     forwardKernel.setArg(0, output);
     forwardKernel.setArg(1,_inputBatch);
     forwardKernel.setArg(2,_inputBatch.size(1));
 
     forwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
-	output.readBuffer(_commandQueue);
 }
 
 void LogSoftMax::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
-    gradInput.resizeAs(_input);
+    inputGrad.resizeAs(_input);
 
     if (_input.nDimensions() == 1)
     {
@@ -77,8 +73,8 @@ void LogSoftMax::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
         for (unsigned i(0) ; i < _gradOutput.nElements() ; i++)
             sum += _gradOutput[i];
 
-        for (unsigned i(0) ; i < gradInput.nElements() ; i++)
-            gradInput[i] = _gradOutput[i] - exp(output[i])*sum;
+        for (unsigned i(0) ; i < inputGrad.nElements() ; i++)
+            inputGrad[i] = _gradOutput[i] - exp(output[i])*sum;
     }
     else if (_input.nDimensions() == 2)
     {
@@ -89,27 +85,24 @@ void LogSoftMax::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
                 sum += _gradOutput(i, j);
 
             for (unsigned j(0) ; j < _gradOutput.size(1) ; j++)
-                gradInput(i, j) = _gradOutput(i, j) - exp(output(i, j))*sum;
+                inputGrad(i, j) = _gradOutput(i, j) - exp(output(i, j))*sum;
         }
     }
 }
 
-void LogSoftMax::backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void LogSoftMax::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+    inputGrad.resizeAs(_inputBatch);
+    inputGrad.openCL(_commandQueue.getContext());
 
-    gradInput.resizeAs(_inputBatch);
-    gradInput.openCL(context);
-
-    backwardKernel.setArg(0, gradInput);
+    backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_inputBatch);
     backwardKernel.setArg(2,_gradOutputBatch);
     backwardKernel.setArg(3, output);
     backwardKernel.setArg(4,_gradOutputBatch.size(1));
 
     backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
-	gradInput.readBuffer(_commandQueue);
+	inputGrad.readBuffer(_commandQueue);
 }
 
 }

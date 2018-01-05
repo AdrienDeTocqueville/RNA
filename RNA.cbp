@@ -52,6 +52,7 @@
 		</Linker>
 		<Unit filename="res/OpenCL/activations.cl" />
 		<Unit filename="res/OpenCL/convolutional.cl" />
+		<Unit filename="res/OpenCL/inertia.cl" />
 		<Unit filename="res/OpenCL/linear.cl" />
 		<Unit filename="res/OpenCL/logSoftMax.cl" />
 		<Unit filename="res/OpenCL/losses.cl" />
@@ -72,17 +73,18 @@
 		<Unit filename="src/Layers/Reshape.h" />
 		<Unit filename="src/Layers/activations.cpp" />
 		<Unit filename="src/Layers/activations.h" />
-		<Unit filename="src/Losses/LossFunction.cpp" />
-		<Unit filename="src/Losses/LossFunction.h" />
+		<Unit filename="src/Losses/Loss.cpp" />
+		<Unit filename="src/Losses/Loss.h" />
 		<Unit filename="src/Losses/MSE.cpp" />
 		<Unit filename="src/Losses/MSE.h" />
 		<Unit filename="src/Losses/NLL.cpp" />
 		<Unit filename="src/Losses/NLL.h" />
 		<Unit filename="src/Network.cpp" />
 		<Unit filename="src/Network.h" />
-		<Unit filename="src/Network.inl" />
-		<Unit filename="src/Optimizer.h" />
+		<Unit filename="src/Optimizers/Momentum.h" />
+		<Unit filename="src/Optimizers/Optimizer.h" />
 		<Unit filename="src/RNA.h" />
+		<Unit filename="src/SGD.h" />
 		<Unit filename="src/Utility/Error.cpp" />
 		<Unit filename="src/Utility/Error.h" />
 		<Unit filename="src/Utility/Random.cpp" />

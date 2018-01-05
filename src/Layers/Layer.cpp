@@ -25,9 +25,9 @@ const Tensor& Layer::getOutput() const
     return output;
 }
 
-const Tensor& Layer::getGradInput() const
+const Tensor& Layer::getInputGrad() const
 {
-    return gradInput;
+    return inputGrad;
 }
 
 void Layer::saveToFile(std::ofstream& _file) const

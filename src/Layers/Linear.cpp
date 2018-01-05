@@ -13,11 +13,8 @@ Linear::Linear(size_t _inputSize, size_t _outputSize):
 {
     randomize();
 
-    gradWeight.resizeAs(weights);
-    gradBias.resizeAs(bias);
-
-    deltaWeight.resizeAs(weights, 0.0);
-    deltaBias.resizeAs(bias, 0.0);
+    weightsGrad.resizeAs(weights);
+    biasGrad.resizeAs(bias);
 }
 
 Linear::Linear(std::ifstream& _file):
@@ -38,21 +35,17 @@ Linear::Linear(std::ifstream& _file):
         _file >> bias(i);
 
 
-    gradWeight.resizeAs(weights);
-    gradBias.resizeAs(bias);
-
-    deltaWeight.resizeAs(weights, 0.0);
-    deltaBias.resizeAs(bias, 0.0);
+    weightsGrad.resizeAs(weights);
+    biasGrad.resizeAs(bias);
 }
 
 void Linear::randomize()
 {
-	// TODO: Init weights with parametrable values
     weights.randomize(Layer::WEIGHT_INIT_MIN, Layer::WEIGHT_INIT_MAX);
     bias.randomize(Layer::BIAS_INIT_MIN, Layer::BIAS_INIT_MAX);
 }
 
-void Linear::openCL(cl::ContextWrapper& _context)
+void Linear::openCL(cl::Context& _context)
 {
     auto& p = _context.getProgram("res/OpenCL/linear.cl");
 
@@ -63,8 +56,8 @@ void Linear::openCL(cl::ContextWrapper& _context)
     weights.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
     bias.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
 
-    gradWeight.openCL(_context());
-    gradBias.openCL(_context());
+    weightsGrad.openCL(_context());
+    biasGrad.openCL(_context());
 
 
     forwardKernel.setArg(2, weights);
@@ -72,8 +65,8 @@ void Linear::openCL(cl::ContextWrapper& _context)
 
     forwardKernel.setArg(3, bias);
 
-    paramsGradKernel.setArg(0, gradWeight);
-    paramsGradKernel.setArg(1, gradBias);
+    paramsGradKernel.setArg(0, weightsGrad);
+    paramsGradKernel.setArg(1, biasGrad);
 }
 
 void Linear::releaseCL()
@@ -100,86 +93,76 @@ void Linear::feedForwardCPU(const Tensor& _input)
     }
 }
 
-void Linear::feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch)
+void Linear::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
-
     output.resize({_inputBatch.size(0), bias.size(0)});
-    output.openCL(context);
+    output.openCL(_commandQueue.getContext());
 
     forwardKernel.setArg(0, output);
     forwardKernel.setArg(1,_inputBatch);
     forwardKernel.setArg(4,_inputBatch.size(1));
 
-    forwardKernel.enqueue(_commandQueue, { output.size(0), output.size(1) });
-	output.readBuffer(_commandQueue);
+    _commandQueue.enqueue(forwardKernel, { output.size(0), output.size(1) });
 }
 
 void Linear::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
     if (_input.nDimensions() == 1)
     {
-        mulmv(gradInput, weights.getTranspose(), _gradOutput);
+        mulmv(inputGrad, weights.getTranspose(), _gradOutput);
 
-        gradWeight.addOuterProduct(_gradOutput, _input);
-        gradBias += _gradOutput;
+        weightsGrad.addOuterProduct(_gradOutput, _input);
+        biasGrad += _gradOutput;
     }
     else if (_input.nDimensions() == 2)
     {
-        mulmm(gradInput, _gradOutput, weights);
+        mulmm(inputGrad, _gradOutput, weights);
 
         Tensor temp; mulmtm(temp, _gradOutput, _input);
-        gradWeight += temp;
+        weightsGrad += temp;
 
         for (unsigned i(0) ; i < _gradOutput.size(0) ; i++)
             for (unsigned j(0) ; j < _gradOutput.size(1) ; j++)
-                gradBias(j) += _gradOutput(i, j);
+                biasGrad(j) += _gradOutput(i, j);
     }
 }
 
-void Linear::backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void Linear::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+    updateInputGrad(_commandQueue, _inputBatch, _gradOutputBatch);
+    updateParamsGrad(_commandQueue, _inputBatch, _gradOutputBatch);
+}
 
-    gradInput.resizeAs({_gradOutputBatch.size(0), weights.size(1)});
-    gradInput.openCL(context);
+void Linear::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+{
+    inputGrad.resizeAs({_gradOutputBatch.size(0), weights.size(1)});
+    inputGrad.openCL(_commandQueue.getContext());
 
-    // gradInput
-    backwardKernel.setArg(0, gradInput);
+    backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_gradOutputBatch);
     backwardKernel.setArg(3,_gradOutputBatch.size(1));
 
-    backwardKernel.enqueue(_commandQueue, { gradInput.size(0), gradInput.size(1) });
-	gradInput.readBuffer(_commandQueue);
+    _commandQueue.enqueue(backwardKernel, { inputGrad.size(0), inputGrad.size(1) });
+}
 
-    // gradWeight, gradBias
+void Linear::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+{
     paramsGradKernel.setArg(2, _gradOutputBatch);
     paramsGradKernel.setArg(3, _inputBatch);
     paramsGradKernel.setArg(4, _gradOutputBatch.size(0));
     paramsGradKernel.setArg(5, _inputBatch.size(1));
 
-    backwardKernel.enqueue(_commandQueue, { _gradOutputBatch.size(1) });
-	gradWeight.readBuffer(_commandQueue);
-	gradBias.readBuffer(_commandQueue);
+    _commandQueue.enqueue(backwardKernel, { _gradOutputBatch.size(1) });
 }
 
-void Linear::zeroParametersGradients()
+void Linear::getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
 {
-    gradWeight.fill(0.0);
-    gradBias.fill(0.0);
+    _params.push_back(&weights);
+    _params.push_back(&bias);
+
+    _paramsGrad.push_back(&weightsGrad);
+    _paramsGrad.push_back(&biasGrad);
 }
-
-void Linear::updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia)
-{
-    deltaWeight = _inertia * deltaWeight - _learningRate * gradWeight;
-    deltaBias = _inertia * deltaBias - _learningRate * gradBias;
-
-    weights += deltaWeight;
-    bias    += deltaBias;
-}
-
 
 void Linear::saveToFile(std::ofstream& _file) const
 {

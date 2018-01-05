@@ -3,16 +3,18 @@
 #include <CL/opencl.h>
 #include <string>
 #include <map>
+#include <vector>
 
-#include "Utility/Tensor.h"
+class Tensor;
+using coords_t = std::vector<size_t>;
 
-namespace rna
-{
 namespace cl
 {
 
-class KernelWrapper;
-class ProgramWrapper;
+std::vector<cl_platform_id> getPlatformsIds();
+std::vector<cl_device_id> getDeviceIds(cl_device_type _deviceType, cl_platform_id _platformId);
+
+std::string getVersion(cl_platform_id _platformId);
 
 template <typename T>
 class Wrapper
@@ -34,51 +36,71 @@ class Wrapper
         T id;
 };
 
-class ContextWrapper: public Wrapper<cl_context>
+class Program;
+class Context: public Wrapper<cl_context>
 {
     public:
-        ContextWrapper();
-        ContextWrapper(const ContextWrapper& c);
+        Context();
+        Context(const Context& c);
 
         void create(cl_device_type _deviceType);
         void create(cl_device_id _deviceId);
         void release();
 
-        const ProgramWrapper& getProgram(const std::string& _path);
+        const Program& getProgram(const std::string& _path);
 
         cl_device_id getDeviceId() const;
 
     private:
         cl_device_id deviceId;
 
-        std::map<std::string, ProgramWrapper> programs;
+        std::map<std::string, Program> programs;
 };
 
-class ProgramWrapper: public Wrapper<cl_program>
+class Kernel;
+class CommandQueue: public Wrapper<cl_command_queue>
 {
     public:
-        ProgramWrapper() {}
-        ProgramWrapper(const ProgramWrapper& c) = delete;
+        CommandQueue() {}
+        CommandQueue(const CommandQueue& c) = delete;
 
-        void create(const ContextWrapper& _context, const std::string& _path);
+        void create(const Context& _context, bool _inOrder = true);
+        void release();
+
+        void join() const;
+        const Context& getContext() const;
+
+        void enqueue(Kernel& _kernel, const coords_t& _globalWorkSize);
+
+    private:
+        const Context* context;
+        bool inOrder;
+};
+
+class Program: public Wrapper<cl_program>
+{
+    public:
+        Program() {}
+        Program(const Program& c) = delete;
+
+        void create(const Context& _context, const std::string& _path);
         void release();
 };
 
-class KernelWrapper: public Wrapper<cl_kernel>
+class Kernel: public Wrapper<cl_kernel>
 {
     public:
-        KernelWrapper() {}
-        KernelWrapper(const KernelWrapper& c) = delete;
+        Kernel() {}
+        Kernel(const Kernel& c) = delete;
 
-        void create(const ProgramWrapper& _program, const std::string& _name);
+        void create(const Program& _program, const std::string& _name);
         void release();
 
         void setArg(cl_uint _index, size_t _size, const void* _value);
         void setArg(cl_uint _index, const Tensor& _value);
         void setArg(cl_uint _index, int _value);
 
-        void enqueue(const cl_command_queue& _commandQueue, const coords_t& _globalWorkSize);
+        void enqueue(CommandQueue& _commandQueue, const coords_t& _globalWorkSize);
 };
 
-}
 }

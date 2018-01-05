@@ -33,7 +33,7 @@ __kernel void feedForwardConvolutional(__global float* _output, __global float* 
     _output[outputIndex] = value + _bias[biasIndex];
 }
 
-__kernel void backpropConvolutional(__global float* _gradInput, __global float* _gradOutput, __global float* _kernel, int _outputChannels, int _kernelWidth, int _kernelHeight, int _batch)
+__kernel void backpropConvolutional(__global float* _inputGrad, __global float* _gradOutput, __global float* _kernel, int _outputChannels, int _kernelWidth, int _kernelHeight, int _batch)
 {
     const int tc = get_global_id(0);
     const int tx = get_global_id(1);
@@ -71,17 +71,17 @@ __kernel void backpropConvolutional(__global float* _gradInput, __global float* 
         }
     }
 
-    _gradInput[inputIndex] = value;
+    _inputGrad[inputIndex] = value;
 }
 
-__kernel void paramsGradConvolutional(__global float* _gradWeight, __global float* _gradBias, __global float* _gradOutput, __global float* _input, int batch)
+__kernel void paramsGradConvolutional(__global float* _weightsGrad, __global float* _biasGrad, __global float* _gradOutput, __global float* _input, int batch)
 {
 //    const int tc = get_global_id(0);
 //    const int tu = get_global_id(1);
 //    const int tv = get_global_id(2);
 //
-//    unsigned shiftu = gradWeight.size(2)-1-i;
-//    unsigned shiftv = gradWeight.size(3)-1-j;
+//    unsigned shiftu = weightsGrad.size(2)-1-i;
+//    unsigned shiftv = weightsGrad.size(3)-1-j;
 //
 //
 //    float value = 0.0f;
@@ -90,5 +90,5 @@ __kernel void paramsGradConvolutional(__global float* _gradWeight, __global floa
 //        for (unsigned v(0) ; v < _gradOutput.size(2) ; v++)
 //            value += _gradOutput(k, u, v) * input(c, u+shiftu, v+shiftv);
 //
-//    gradWeight({k, c, i, j}) = value;
+//    weightsGrad({k, c, i, j}) = value;
 }

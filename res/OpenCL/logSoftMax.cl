@@ -17,7 +17,7 @@ __kernel void feedForwardLogSoftMax(__global float* _output, __global float* _in
         _output[start+i] = _input[start+i] - logSum;
 }
 
-__kernel void backpropLogSoftMax(__global float* _gradInput, __global float* _input, __global float* _gradOutput, __global float* _output, int _gradOutputWidth)
+__kernel void backpropLogSoftMax(__global float* _inputGrad, __global float* _input, __global float* _gradOutput, __global float* _output, int _gradOutputWidth)
 {
     const int start = get_global_id(0)*_gradOutputWidth;
 
@@ -26,5 +26,5 @@ __kernel void backpropLogSoftMax(__global float* _gradInput, __global float* _in
         sum += _gradOutput[start+i];
 
     for (int i = 0; i < _gradOutputWidth; i++)
-        _gradInput[start+i] = _gradOutput[start+i] - exp(_output[start+i])*sum;
+        _inputGrad[start+i] = _gradOutput[start+i] - exp(_output[start+i])*sum;
 }

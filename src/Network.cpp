@@ -20,8 +20,7 @@ void randomMinibatch(const DataSet& _dataSet, Tensor& _inputBatch, Tensor& _outp
 
     for (size_t i(0); i < _minibatchSize; i++)
     {
-//        const Example& example = Random::element(_dataSet);
-        const Example& example = _dataSet[0];
+        const Example& example = Random::element(_dataSet);
 
         for (unsigned j(0) ; j < _inputBatch.size(1) ; j++)
             _inputBatch(i, j) = example.input[j];
@@ -150,56 +149,46 @@ void Network::releaseCL()
         l->releaseCL();
 }
 
-Tensor Network::feedForward(const Tensor& _input)
+const Tensor& Network::feedForward(const Tensor& _input)
 {
     if (!context)
         return feedForwardCPU(_input);
 
     else
     {
-        std::cout << "can't use openCL with const tensor&" << std::endl;
-        return Tensor();
+        cl::CommandQueue commandQueue; commandQueue.create(context, true);
+
+        const Tensor& output = feedForwardCL(commandQueue, _input);
+        output.readBuffer(commandQueue);
+
+        commandQueue.join();
+
+        return output;
     }
-}
-
-Tensor Network::feedForward(Tensor& _input)
-{
-    if (!context)
-        return feedForwardCPU(_input);
-
-    else
-        return feedForwardCL(_input);
 }
 
 void Network::backprop(const Tensor& _input, const Tensor& _gradOutput)
 {
     if (!context)
-        return backpropCPU(_input, _gradOutput);
+        backpropCPU(_input, _gradOutput);
 
     else
-        std::cout << "can't use openCL with const tensor&" << std::endl;
+    {
+        cl::CommandQueue commandQueue; commandQueue.create(context, true);
+        backpropCL(commandQueue, _input, _gradOutput);
+        commandQueue.join();
+    }
 }
 
-void Network::backprop(Tensor& _input, Tensor& _gradOutput)
+cl::Context& Network::getContext()
 {
-    if (!context)
-        return backpropCPU(_input, _gradOutput);
-
-    else
-        return backpropCL(_input, _gradOutput);
+    return context;
 }
 
-
-void Network::zeroParametersGradients()
+void Network::getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad) const
 {
-    for (unsigned l(0) ; l < layers.size() ; ++l)
-        layers[l]->zeroParametersGradients();
-}
-
-void Network::updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia)
-{
-    for (unsigned l(0) ; l < layers.size() ; ++l)
-        layers[l]->updateParameters(_learningRate, _inertia);
+    for (Layer* layer: layers)
+        layer->getParams(_params, _paramsGrad);
 }
 
 bool Network::saveToFile(const std::string& _file) const
@@ -284,7 +273,7 @@ bool Network::loadFromFile(const std::string& _file)
 }
 
 /// Methods (private)
-Tensor Network::feedForwardCPU(const Tensor& _input)
+const Tensor& Network::feedForwardCPU(const Tensor& _input)
 {
     layers.front()->feedForwardCPU(_input);
 
@@ -294,63 +283,48 @@ Tensor Network::feedForwardCPU(const Tensor& _input)
     return layers.back()->getOutput();
 }
 
-Tensor Network::feedForwardCL(Tensor& _inputBatch)
+const Tensor& Network::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-//    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, nullptr);
-    cl_command_queue commandQueue = clCreateCommandQueue(context(), context.getDeviceId(), 0, nullptr);
+    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
 
-    _inputBatch.openCL(context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
 
-    layers.front()->feedForwardCL(commandQueue, _inputBatch);
+    layers.front()->feedForwardCL(_commandQueue, _inputBatch);
 
     for (unsigned l(1) ; l < layers.size() ; ++l)
-        layers[l]->feedForwardCL( commandQueue, layers[l-1]->getOutput() );
+        layers[l]->feedForwardCL(_commandQueue, layers[l-1]->getOutput());
 
-    clReleaseCommandQueue(commandQueue);
 
     return layers.back()->getOutput();
 }
 
 void Network::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
-    if (layers.size() == 1)
-    {
-        layers[0]->backpropCPU(_input, _gradOutput);
-    }
-    else
-    {
-        layers.back()->backpropCPU(layers[layers.size()-2]->getOutput(), _gradOutput);
+    const Tensor* g = &_gradOutput;
 
-        for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
-            layers[l]->backpropCPU(layers[l-1]->getOutput(), layers[l+1]->getGradInput());
-
-        layers[0]->backpropCPU(_input, layers[1]->getGradInput());
+    for (unsigned l(layers.size()-1) ; l >= 1 ; l--)
+    {
+        layers[l]->backpropCPU(layers[l-1]->getOutput(), *g);
+        g = &layers[l]->getInputGrad();
     }
+
+    layers[0]->backpropCPU(_input, *g);
 }
 
-void Network::backpropCL(Tensor& _inputBatch, Tensor& _gradOutputBatch)
+void Network::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
-//    cl_command_queue commandQueue = clCreateCommandQueueWithProperties(context, deviceId, nullptr, nullptr);
-    cl_command_queue commandQueue = clCreateCommandQueue(context(), context.getDeviceId(), 0, nullptr);
+    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    _gradOutputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
 
-    _inputBatch.openCL(context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-    _gradOutputBatch.openCL(context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
 
-    if (layers.size() == 1)
+    const Tensor* g = &_gradOutputBatch;
+
+    for (unsigned l(layers.size()-1) ; l >= 1 ; l--)
     {
-        layers[0]->backpropCPU(_inputBatch, _gradOutputBatch);
-    }
-    else
-    {
-        layers.back()->backpropCL(commandQueue, layers[layers.size()-2]->getOutput(), _gradOutputBatch);
-
-        for (unsigned l(layers.size()-2) ; l >= 1 ; l--)
-            layers[l]->backpropCL(commandQueue, layers[l-1]->getOutput(), layers[l+1]->getGradInput());
-
-        layers[0]->backpropCL(commandQueue, _inputBatch, layers[1]->getGradInput());
+        layers[l]->backpropCL(_commandQueue, layers[l-1]->getOutput(), *g);
+        g = &layers[l]->getInputGrad();
     }
 
-    clReleaseCommandQueue(commandQueue);
+    layers[0]->backpropCL(_commandQueue, _inputBatch, *g);
 }
 
 }

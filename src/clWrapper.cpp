@@ -5,53 +5,84 @@
 #include <iostream>
 
 #include "Utility/Error.h"
+#include "Utility/Tensor.h"
 
-namespace rna
-{
 namespace cl
 {
 
-ContextWrapper::ContextWrapper():
+std::vector<cl_platform_id> getPlatformsIds()
+{
+    std::vector<cl_platform_id> ids;
+
+    cl_int error;
+
+    cl_uint platCount;
+    error = clGetPlatformIDs(0, nullptr, &platCount);
+    if (error != CL_SUCCESS)
+        Error::add(ErrorType::WARNING, "OpenCL: Failed to get platform count with error code " + toString(error));
+
+    ids.resize(platCount);
+    error = clGetPlatformIDs(platCount, ids.data(), nullptr);
+    if (error != CL_SUCCESS)
+        Error::add(ErrorType::WARNING, "OpenCL: Failed to get platforms with error code " + toString(error));
+
+    return ids;
+}
+
+std::vector<cl_device_id> getDeviceIds(cl_device_type _deviceType, cl_platform_id _platformId)
+{
+    std::vector<cl_device_id> ids;
+
+    cl_int error;
+
+    cl_uint deviceCount;
+    error = clGetDeviceIDs(_platformId, _deviceType, 0, nullptr, &deviceCount);
+    if (error != CL_SUCCESS)
+        Error::add(ErrorType::WARNING, "OpenCL: Failed to get devices count with error code " + toString(error));
+
+    ids.resize(deviceCount);
+    error = clGetDeviceIDs(_platformId, _deviceType, deviceCount, ids.data(), nullptr);
+    if (error != CL_SUCCESS)
+        Error::add(ErrorType::WARNING, "OpenCL: Failed to get devices with error code " + toString(error));
+
+    return ids;
+}
+
+std::string getVersion(cl_platform_id _platformId)
+{
+    cl_uint charCount = 0;
+    clGetPlatformInfo(_platformId, CL_PLATFORM_VERSION, 0, nullptr, &charCount);
+
+    char* cversion = new char[charCount];
+    clGetPlatformInfo(_platformId, CL_PLATFORM_VERSION, charCount, cversion, nullptr);
+
+    std::string version(cversion);
+    delete[] cversion;
+
+    return version;
+}
+
+Context::Context():
     deviceId(0)
 { }
 
-ContextWrapper::ContextWrapper(const ContextWrapper& c):
+Context::Context(const Context& c):
     Wrapper<cl_context>()
 {
     create(c.getDeviceId());
 }
 
-void ContextWrapper::create(cl_device_type _deviceType)
+void Context::create(cl_device_type _deviceType)
 {
-    cl_int error;
+    cl_platform_id platformIds = getPlatformsIds().front();
+    deviceId = getDeviceIds(_deviceType, platformIds).front();
 
-    cl_platform_id platform_id;
-    error = clGetPlatformIDs(1, &platform_id, nullptr);
-    if (error != CL_SUCCESS)
-        Error::add(ErrorType::WARNING, "OpenCL: Failed to get platforms with error code " + toString(error));
-
-    error = clGetDeviceIDs(platform_id, _deviceType, 1, &deviceId, nullptr);
-    if (error != CL_SUCCESS)
-        Error::add(ErrorType::WARNING, "OpenCL: Failed to get devices with error code " + toString(error));
-
-    // Print version
-    if (true)
-    {
-        cl_uint deviceIdCount = 0;
-        clGetDeviceInfo(deviceId, CL_DEVICE_VERSION, 0, nullptr, &deviceIdCount);
-
-        char* v = (char*)malloc(deviceIdCount*sizeof(char));
-        clGetDeviceInfo(deviceId, CL_DEVICE_VERSION, deviceIdCount, v, nullptr);
-
-        std::cout << "OpenCL version: " << v << std::endl;
-
-        free(v);
-    }
+    std::cout << "OpenCL version: " << getVersion(platformIds) << std::endl;
 
     create(deviceId);
 }
 
-void ContextWrapper::create(cl_device_id _deviceId)
+void Context::create(cl_device_id _deviceId)
 {
     if (id || !_deviceId)
         return;
@@ -65,7 +96,7 @@ void ContextWrapper::create(cl_device_id _deviceId)
         Error::add(ErrorType::WARNING, "OpenCL: Failed to create id with error code " + toString(error));
 }
 
-void ContextWrapper::release()
+void Context::release()
 {
     clReleaseContext(id);
     id = 0;
@@ -74,25 +105,75 @@ void ContextWrapper::release()
     programs.clear();
 }
 
-const ProgramWrapper& ContextWrapper::getProgram(const std::string& _path)
+const Program& Context::getProgram(const std::string& _path)
 {
 //    auto element = programs.emplace(std::piecewise_construct, std::make_tuple(_path), std::make_tuple(*this, _path));
 //
 //    return &element.first->second;
-    ProgramWrapper& program = programs[_path];
+    Program& program = programs[_path];
     program.create(*this, _path);
 
     return program;
 }
 
-cl_device_id ContextWrapper::getDeviceId() const
+cl_device_id Context::getDeviceId() const
 {
     return deviceId;
 }
 
 
-/// ProgramWrapper
-void ProgramWrapper::create(const ContextWrapper& _context, const std::string& _path)
+/// CommandQueue
+void CommandQueue::create(const Context& _context, bool _inOrder)
+{
+    if (id)
+        return;
+
+    context = &_context;
+    inOrder = _inOrder;
+
+    cl_int error;
+
+    // About out of order mode: https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html
+    cl_command_queue_properties properties = _inOrder? 0: CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+
+//    id = clCreateCommandQueueWithProperties(_context(), _context.getDeviceId(), nullptr, &error);
+    id = clCreateCommandQueue(_context(), _context.getDeviceId(), properties, &error);
+
+    if (error != CL_SUCCESS)
+        Error::add(ErrorType::UNKNOWN_ERROR, "clCreateCommandQueue() error: " + toString(error));
+}
+
+void CommandQueue::release()
+{
+    clReleaseCommandQueue(id);
+    id = 0;
+
+    context = nullptr;
+}
+
+void CommandQueue::join() const
+{
+    clFinish(id);
+}
+
+const Context& CommandQueue::getContext() const
+{
+    return *context;
+}
+
+void CommandQueue::enqueue(Kernel& _kernel, const coords_t& _globalWorkSize)
+{
+	cl_int error = clEnqueueNDRangeKernel(id, _kernel(), _globalWorkSize.size(), nullptr, _globalWorkSize.data(), nullptr, 0, nullptr, nullptr);
+
+	if (error != CL_SUCCESS)
+    {
+        Error::add(ErrorType::USER_ERROR, "Kernel enqueue: " + toString(error));
+    }
+}
+
+
+/// Program
+void Program::create(const Context& _context, const std::string& _path)
 {
     if (id)
         return;
@@ -134,15 +215,15 @@ void ProgramWrapper::create(const ContextWrapper& _context, const std::string& _
         Error::add(ErrorType::UNKNOWN_ERROR, "Error " + toString(error) + " while building program: " + _path);
 }
 
-void ProgramWrapper::release()
+void Program::release()
 {
 	clReleaseProgram(id);
     id = 0;
 }
 
 
-/// KernelWrapper
-void KernelWrapper::create(const ProgramWrapper& _program, const std::string& _name)
+/// Kernel
+void Kernel::create(const Program& _program, const std::string& _name)
 {
     if (id)
         return;
@@ -160,30 +241,33 @@ void KernelWrapper::create(const ProgramWrapper& _program, const std::string& _n
     }
 }
 
-void KernelWrapper::release()
+void Kernel::release()
 {
 	clReleaseKernel(id);
     id = 0;
 }
 
-void KernelWrapper::setArg(cl_uint _index, size_t _size, const void* _value)
+void Kernel::setArg(cl_uint _index, size_t _size, const void* _value)
 {
-    clSetKernelArg(id, _index, _size, _value);
+    cl_int error = clSetKernelArg(id, _index, _size, _value);
+
+    if (error != CL_SUCCESS)
+        Error::add(ErrorType::UNKNOWN_ERROR, "Kernel arg number " + toString(_index) + " error: " + toString(error));
 }
 
-void KernelWrapper::setArg(cl_uint _index, const Tensor& _value)
+void Kernel::setArg(cl_uint _index, const Tensor& _value)
 {
-    clSetKernelArg(id, _index, sizeof(cl_mem), &_value.getBuffer());
+    setArg(_index, sizeof(cl_mem), &_value.getBuffer());
 }
 
-void KernelWrapper::setArg(cl_uint _index, int _value)
+void Kernel::setArg(cl_uint _index, int _value)
 {
-    clSetKernelArg(id, _index, sizeof(int), &_value);
+    setArg(_index, sizeof(int), &_value);
 }
 
-void KernelWrapper::enqueue(const cl_command_queue& _commandQueue, const coords_t& _globalWorkSize)
+void Kernel::enqueue(CommandQueue& _commandQueue, const coords_t& _globalWorkSize)
 {
-	cl_int error = clEnqueueNDRangeKernel(_commandQueue, id, _globalWorkSize.size(), nullptr, _globalWorkSize.data(), nullptr, 0, nullptr, nullptr);
+	cl_int error = clEnqueueNDRangeKernel(_commandQueue(), id, _globalWorkSize.size(), nullptr, _globalWorkSize.data(), nullptr, 0, nullptr, nullptr);
 
 	if (error != CL_SUCCESS)
     {
@@ -191,5 +275,4 @@ void KernelWrapper::enqueue(const cl_command_queue& _commandQueue, const coords_
     }
 }
 
-}
 }

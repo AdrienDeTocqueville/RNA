@@ -44,34 +44,28 @@ void Reshape::feedForwardCPU(const Tensor& _input)
     output.resize(outputSize);
 }
 
-void Reshape::feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch)
+void Reshape::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+    _commandQueue.join(); // Wait for previous layers to finish
 
-    clFinish(_commandQueue); // Wait for previous layers to finish
+    feedForwardCPU(_inputBatch); // TODO: use clEnqueueCopyBuffer
 
-    feedForwardCPU(_inputBatch); // TODO: Move op to GPU ?
-
-    output.openCL(context);
+    output.openCL(_commandQueue.getContext());
 }
 
 void Reshape::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
 {
-    gradInput = _gradOutput;
-    gradInput.resizeAs(_input);
+    inputGrad = _gradOutput;
+    inputGrad.resizeAs(_input);
 }
 
-void Reshape::backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void Reshape::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
-    cl_context context;
-    clGetCommandQueueInfo(_commandQueue, CL_QUEUE_CONTEXT, sizeof(cl_context), &context, nullptr);
+    _commandQueue.join(); // Wait for previous layers to finish
 
-    clFinish(_commandQueue); // Wait for previous layers to finish
+    backpropCPU(_inputBatch, _gradOutputBatch); // TODO: use clEnqueueCopyBuffer
 
-    backpropCPU(_inputBatch, _gradOutputBatch); // TODO: Move op to GPU ?
-
-    gradInput.openCL(context);
+    inputGrad.openCL(_commandQueue.getContext());
 }
 
 

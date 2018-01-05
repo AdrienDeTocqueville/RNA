@@ -1,20 +1,21 @@
 #pragma once
 
-#include "LossFunction.h"
+#include "Loss.h"
 
 namespace rna
 {
 
-class NLL: public LossFunction
+class NLL: public Loss
 {
+    friend class Network;
+
     public:
         virtual Tensor::value_type getLoss(const Tensor& _estimation, const Tensor& _target) const;
 
-        virtual Tensor getGradient(const Tensor& _estimation, const Tensor& _target) const;
-        virtual void   getGradientGPU(const cl_command_queue& _commandQueue, const Tensor& _estimationBatch, const Tensor& _targetBatch) const;
+        virtual const Tensor& getGradient(const Tensor& _estimation, const Tensor& _target) override;
+        virtual const Tensor& getGradientCL(cl::CommandQueue& _commandQueue, const Tensor& _estimationBatch, const Tensor& _targetBatch) override;
 
-    private:
-        virtual void openCL(cl::ContextWrapper& _context);
+        virtual void openCL(cl::Context& _context) override;
 };
 
 }

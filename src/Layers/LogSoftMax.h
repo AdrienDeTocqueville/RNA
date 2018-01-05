@@ -11,13 +11,13 @@ class LogSoftMax: public Layer
         LogSoftMax(): Layer("LogSoftMax") {}
 
         virtual void feedForwardCPU(const Tensor& _input);
-        virtual void feedForwardCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch);
+        virtual void feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch);
 
         virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
-        virtual void backpropCL(const cl_command_queue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
+        virtual void backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
 
     private:
-        virtual void openCL(cl::ContextWrapper& _context) override;
+        virtual void openCL(cl::Context& _context) override;
 };
 
 }

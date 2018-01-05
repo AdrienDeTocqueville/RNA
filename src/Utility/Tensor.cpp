@@ -87,40 +87,42 @@ Tensor& Tensor::operator=(Tensor _tensor)
 }
 
 
-void Tensor::openCL(cl_context _context, cl_mem_flags _flags)
+void Tensor::openCL(const cl::Context& _context, cl_mem_flags _flags) const
+{
+    openCL(_context(), _flags);
+}
+
+void Tensor::openCL(cl_context _context, cl_mem_flags _flags) const
 {
     if (buffer)
         return;
 
     cl_int error = CL_SUCCESS;
     size_t byteSize = sizeof (value_type) * nElements();
-    void* host_ptr = (_flags&CL_MEM_USE_HOST_PTR || _flags&CL_MEM_COPY_HOST_PTR)? data(): nullptr;
+    const void* host_ptr = (_flags&CL_MEM_USE_HOST_PTR || _flags&CL_MEM_COPY_HOST_PTR)? data(): nullptr;
 
     // TODO: Use clCreateImage2D for matrix ?
-    buffer = clCreateBuffer(_context, _flags, byteSize, host_ptr, &error);
+    buffer = clCreateBuffer(_context, _flags, byteSize, const_cast<void*>(host_ptr), &error);
 
     if (error != CL_SUCCESS)
         std::cout << "Unable to create buffer: " << error << std::endl;
 }
 
-void Tensor::openCLAs(cl_mem _buffer)
-{
-    std::cout << "Warning: copy of gpu tensor is experimental" << std::endl;
-
-    cl_context context; cl_mem_flags flags;
-    clGetMemObjectInfo(_buffer, CL_MEM_CONTEXT, sizeof(cl_context), &context, nullptr);
-    clGetMemObjectInfo(_buffer, CL_MEM_FLAGS, sizeof(cl_mem_flags), &flags, nullptr);
-
-    openCL(context, flags);
-}
+//void Tensor::openCLAs(cl_mem _buffer)
+//{
+//    std::cout << "Warning: copy of gpu tensor is experimental" << std::endl;
+//
+//    cl_context context; cl_mem_flags flags;
+//    clGetMemObjectInfo(_buffer, CL_MEM_CONTEXT, sizeof(cl_context), &context, nullptr);
+//    clGetMemObjectInfo(_buffer, CL_MEM_FLAGS, sizeof(cl_mem_flags), &flags, nullptr);
+//
+//    openCL(context, flags);
+//}
 
 void Tensor::releaseCL()
 {
-    if (buffer)
-    {
-        clReleaseMemObject(buffer);
-        buffer = 0;
-    }
+    clReleaseMemObject(buffer);
+    buffer = 0;
 }
 
 const coords_t& Tensor::size() const
@@ -258,9 +260,9 @@ const cl_mem& Tensor::getBuffer() const
     return buffer;
 }
 
-void Tensor::readBuffer(const cl_command_queue& _commandQueue, const cl_bool& _blockingRead)
+void Tensor::readBuffer(cl::CommandQueue& _commandQueue, const cl_bool& _blockingRead) const
 {
-	cl_int error = clEnqueueReadBuffer(_commandQueue, getBuffer(), _blockingRead, 0, nElements() * sizeof(value_type), data(), 0, nullptr, nullptr);
+	cl_int error = clEnqueueReadBuffer(_commandQueue(), getBuffer(), _blockingRead, 0, nElements() * sizeof(value_type), const_cast<void*>((void*)data()), 0, nullptr, nullptr);
 
     #ifdef TENSOR_SAFE
         if (error != CL_SUCCESS)

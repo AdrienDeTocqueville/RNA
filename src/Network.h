@@ -3,8 +3,6 @@
 #include <string>
 
 #include "Layers/Layer.h"
-#include "Optimizer.h"
-#include "clWrapper.h"
 
 
 namespace rna
@@ -52,45 +50,24 @@ class Network
 //            layers.push_back(new T(args...));
 //        }
 
-        void openCL(cl_device_type _deviceType = CL_DEVICE_TYPE_CPU);
+        void openCL(cl_device_type _deviceType = CL_DEVICE_TYPE_ALL);
         void releaseCL();
 
-        // TODO: Should not copy return value
-        Tensor feedForward(const Tensor& _input);
-        Tensor feedForward(Tensor& _input);
-
+        const Tensor& feedForward(const Tensor& _input);
         void backprop(const Tensor& _input, const Tensor& _gradOutput);
-        void backprop(Tensor& _input, Tensor& _gradOutput);
 
-        template<typename L>
-        void train(Optimizer<L>& _optimizer, const DataSet& _dataSet, unsigned _maxEpochs, unsigned _epochsBetweenReports, unsigned _minibatchSize = 32);
+        const Tensor& feedForwardCPU(const Tensor& _input);
+        const Tensor& feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch);
 
-//        template<typename L>
-//        void QLearn(Optimizer<L>& _optimizer, Network& _target, const Memory& _memory, unsigned _miniBatchSize, double _discount);
+        void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
+        void backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
 
 
-        void zeroParametersGradients();
-        void updateParameters(Tensor::value_type _learningRate, Tensor::value_type _inertia);
+        cl::Context& getContext();
+        void getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad) const;
 
         bool saveToFile(const std::string& _file) const;
         bool loadFromFile(const std::string& _file);
-
-    private:
-        Tensor feedForwardCPU(const Tensor& _input);
-        Tensor feedForwardCL(Tensor& _inputBatch);
-
-        void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
-        void backpropCL(Tensor& _inputBatch, Tensor& _gradOutputBatch);
-
-        template<typename L>
-        void trainCPU(Optimizer<L>& _optimizer, const DataSet& _dataSet, unsigned _maxEpochs, unsigned _epochsBetweenReports, unsigned _minibatchSize);
-
-        template<typename L>
-        void trainCL(Optimizer<L>& _optimizer, const DataSet& _dataSet, unsigned _maxEpochs, unsigned _epochsBetweenReports, unsigned _minibatchSize);
-
-        cl::ContextWrapper context;
-
-        std::vector<Layer*> layers;
 
         friend void swap(Network& first, Network& second)
         {
@@ -98,8 +75,11 @@ class Network
 
             swap(first.layers, second.layers);
         }
+
+    private:
+        cl::Context context;
+
+        std::vector<Layer*> layers;
 };
 
 }
-
-#include "Network.inl"

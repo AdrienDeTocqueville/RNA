@@ -4,7 +4,7 @@
 #include <ostream>
 #include <vector>
 
-#include <CL/opencl.h>
+#include "../clWrapper.h"
 
 using std::size_t;
 
@@ -36,8 +36,9 @@ class Tensor
         Tensor& operator=(Tensor _tensor);
 
 
-        void openCL(cl_context _context, cl_mem_flags _flags = CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR);
-        void openCLAs(cl_mem _buffer);
+        void openCL(const cl::Context& _context, cl_mem_flags _flags = CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR) const;
+        void openCL(cl_context _context, cl_mem_flags _flags = CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR) const;
+//        void openCLAs(cl_mem _buffer);
 
         void releaseCL();
 
@@ -57,7 +58,7 @@ class Tensor
         size_t getIndex(const coords_t&  _indices) const;
 
         const cl_mem& getBuffer() const;
-        void readBuffer(const cl_command_queue& _commandQueue, const cl_bool& _blockingRead = CL_FALSE);
+        void readBuffer(cl::CommandQueue& _commandQueue, const cl_bool& _blockingRead = CL_FALSE) const;
 
         value_type* data();
         const value_type* data() const;
@@ -97,7 +98,7 @@ class Tensor
         coords_t strides;
         std::vector<value_type> values;
 
-        cl_mem buffer;
+        mutable cl_mem buffer;
 
         friend void swap(Tensor& first, Tensor& second)
         {
