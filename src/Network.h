@@ -8,27 +8,6 @@
 namespace rna
 {
 
-struct Example
-{
-    Tensor input;
-    Tensor output;
-};
-
-struct Transition
-{
-    Tensor state;
-    size_t action;
-    Tensor::value_type reward;
-    Tensor nextState;
-
-    bool terminal;
-};
-
-using DataSet = std::vector<Example>;
-using Memory = std::vector<Transition>;
-
-void randomMinibatch(const DataSet& _dataSet, Tensor& _inputBatch, Tensor& _outputBatch, const unsigned& _minibatchSize);
-
 class Network
 {
     public:

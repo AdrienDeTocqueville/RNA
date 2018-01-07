@@ -52,11 +52,11 @@
 		</Linker>
 		<Unit filename="res/OpenCL/activations.cl" />
 		<Unit filename="res/OpenCL/convolutional.cl" />
-		<Unit filename="res/OpenCL/inertia.cl" />
 		<Unit filename="res/OpenCL/linear.cl" />
 		<Unit filename="res/OpenCL/logSoftMax.cl" />
 		<Unit filename="res/OpenCL/losses.cl" />
 		<Unit filename="res/OpenCL/maxPooling.cl" />
+		<Unit filename="res/OpenCL/sgd.cl" />
 		<Unit filename="src/Image.cpp" />
 		<Unit filename="src/Image.h" />
 		<Unit filename="src/Layers/Convolutional.cpp" />
@@ -81,10 +81,12 @@
 		<Unit filename="src/Losses/NLL.h" />
 		<Unit filename="src/Network.cpp" />
 		<Unit filename="src/Network.h" />
-		<Unit filename="src/Optimizers/Momentum.h" />
 		<Unit filename="src/Optimizers/Optimizer.h" />
+		<Unit filename="src/Optimizers/RMSProp.h" />
+		<Unit filename="src/Optimizers/SGD.h" />
 		<Unit filename="src/RNA.h" />
-		<Unit filename="src/SGD.h" />
+		<Unit filename="src/Supervised.cpp" />
+		<Unit filename="src/Supervised.h" />
 		<Unit filename="src/Utility/Error.cpp" />
 		<Unit filename="src/Utility/Error.h" />
 		<Unit filename="src/Utility/Random.cpp" />

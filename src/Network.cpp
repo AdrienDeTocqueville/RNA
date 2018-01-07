@@ -1,56 +1,15 @@
 #include "RNA.h"
 
-#include "Utility/Random.h"
-#include "Utility/Error.h"
-
 #include <iostream>
 #include <fstream>
 
 #include "windows.h"
 
-//#define RANDOM_SEED
-
 namespace rna
 {
 
-void randomMinibatch(const DataSet& _dataSet, Tensor& _inputBatch, Tensor& _outputBatch, const unsigned& _minibatchSize)
-{
-    _inputBatch.resize({_minibatchSize, _dataSet[0].input.nElements()});
-    _outputBatch.resize({_minibatchSize, _dataSet[0].output.nElements()});
-
-    for (size_t i(0); i < _minibatchSize; i++)
-    {
-        const Example& example = Random::element(_dataSet);
-
-        for (unsigned j(0) ; j < _inputBatch.size(1) ; j++)
-            _inputBatch(i, j) = example.input[j];
-
-        for (unsigned j(0) ; j < _outputBatch.size(1) ; j++)
-            _outputBatch(i, j) = example.output[j];
-    }
-
-    // Restore input structure
-    coords_t iSize = _dataSet[0].input.size(); iSize.insert(iSize.begin(), _minibatchSize);
-    coords_t oSize = _dataSet[0].output.size(); oSize.insert(oSize.begin(), _minibatchSize);
-
-    _inputBatch.resize(iSize);
-    _outputBatch.resize(oSize);
-}
-
 Network::Network()
-{
-    #ifdef RANDOM_SEED
-        Random::setSeed();
-        std::cout << "Seed: " << Random::getSeed() << std::endl;
-    #else
-        Random::setSeed(1513874735);
-
-        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-        SetConsoleTextAttribute(hConsole, 12);
-        std::cout << "Warning: seed is fixed to " << Random::getSeed() << std::endl;
-        SetConsoleTextAttribute(hConsole, 7);
-    #endif
-}
+{ }
 
 Network::Network(Network&& _network)
 {

@@ -63,7 +63,6 @@ void Activation::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
     backwardKernel.setArg(3, sizeof(cl_int), &inputWidth);
 
     backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
-	inputGrad.readBuffer(_commandQueue);
 }
 
 

@@ -102,7 +102,6 @@ void LogSoftMax::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
     backwardKernel.setArg(4,_gradOutputBatch.size(1));
 
     backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
-	inputGrad.readBuffer(_commandQueue);
 }
 
 }

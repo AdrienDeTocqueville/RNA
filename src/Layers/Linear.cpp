@@ -61,9 +61,11 @@ void Linear::openCL(cl::Context& _context)
 
 
     forwardKernel.setArg(2, weights);
-    backwardKernel.setArg(2, weights);
-
     forwardKernel.setArg(3, bias);
+    forwardKernel.setArg(4, weights.size(1));
+
+    backwardKernel.setArg(2, weights);
+    backwardKernel.setArg(3, weights.size(0));
 
     paramsGradKernel.setArg(0, weightsGrad);
     paramsGradKernel.setArg(1, biasGrad);
@@ -100,9 +102,8 @@ void Linear::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _input
 
     forwardKernel.setArg(0, output);
     forwardKernel.setArg(1,_inputBatch);
-    forwardKernel.setArg(4,_inputBatch.size(1));
 
-    _commandQueue.enqueue(forwardKernel, { output.size(0), output.size(1) });
+    _commandQueue.enqueue(forwardKernel, output.size());
 }
 
 void Linear::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
@@ -140,19 +141,19 @@ void Linear::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inp
 
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_gradOutputBatch);
-    backwardKernel.setArg(3,_gradOutputBatch.size(1));
 
-    _commandQueue.enqueue(backwardKernel, { inputGrad.size(0), inputGrad.size(1) });
+    _commandQueue.enqueue(backwardKernel, inputGrad.size());
 }
 
+// TODO: use two kernels
 void Linear::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
     paramsGradKernel.setArg(2, _gradOutputBatch);
     paramsGradKernel.setArg(3, _inputBatch);
-    paramsGradKernel.setArg(4, _gradOutputBatch.size(0));
-    paramsGradKernel.setArg(5, _inputBatch.size(1));
+    paramsGradKernel.setArg(4, _inputBatch.size(0));
+    paramsGradKernel.setArg(5,  weights.size(1));
 
-    _commandQueue.enqueue(backwardKernel, { _gradOutputBatch.size(1) });
+    _commandQueue.enqueue(backwardKernel, { weights.size(0) });
 }
 
 void Linear::getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)

@@ -57,7 +57,6 @@ const Tensor& NLL::getGradientCL(cl::CommandQueue& _commandQueue, const Tensor& 
     gradientKernel.setArg(2,_estimationBatch.size(1));
 
     gradientKernel.enqueue(_commandQueue, { _estimationBatch.size(0) });
-	gradient.readBuffer(_commandQueue);
 
     return gradient;
 }

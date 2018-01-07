@@ -139,6 +139,7 @@ void Convolutional::updateInputGrad(cl::CommandQueue& _commandQueue, const Tenso
     }
 }
 
+// TODO: use two kernels
 void Convolutional::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
 {
     // weightsGrad, biasGrad

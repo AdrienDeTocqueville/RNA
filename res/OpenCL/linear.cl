@@ -30,11 +30,11 @@ __kernel void backpropLinear(__global float* _inputGrad, __global float* _gradOu
     _inputGrad[tx * get_global_size(1) + ty] = value;
 }
 
-__kernel void paramsGradLinear(__global float* _weightsGrad, __global float* _biasGrad, __global float* _gradOutput, __global float* _input, int _gradOutputHeight, int _inputWidth)
+__kernel void paramsGradLinear(__global float* _weightsGrad, __global float* _biasGrad, __global float* _gradOutput, __global float* _input, int _batchSize, int _inputWidth)
 {
     const int j = get_global_id(0);
 
-    for (int i = 0; i < _gradOutputHeight; ++i)
+    for (int i = 0; i < _batchSize; ++i)
     {
         float gradOutput = _gradOutput[i * get_global_size(0) + j];
 

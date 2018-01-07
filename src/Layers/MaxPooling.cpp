@@ -98,8 +98,6 @@ void MaxPooling::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
         backwardKernel.setArg(3, i);
         backwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
     }
-
-	inputGrad.readBuffer(_commandQueue);
 }
 
 }

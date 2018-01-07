@@ -1,4 +1,4 @@
-__kernel void updateParam(__global float* _param, __global float* _paramGrad, __global float* _paramDelta, float _learningRate, float _inertia, )
+__kernel void updateParam(__global float* _param, __global float* _paramGrad, __global float* _paramDelta, float _learningRate, float _inertia)
 {
     const int i = get_global_id(0);
 

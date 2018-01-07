@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Network.h"
-#include "SGD.h"
+#include "Supervised.h"
 
 #include "Losses/MSE.h"
 #include "Losses/NLL.h"
@@ -14,7 +14,8 @@
 
 #include "Layers/activations.h"
 
-#include "Optimizers/Momentum.h"
+#include "Optimizers/SGD.h"
+#include "Optimizers/RMSProp.h"
 
 // TODO: Call clSetKernelArg once for const args ?
 // TODO: remove all readBuffers

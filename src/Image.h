@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Network.h"
+#include "Supervised.h"
 
 Tensor loadImage(std::string _path);
 

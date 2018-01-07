@@ -6,6 +6,8 @@
 #include "Image.h"
 #include "Utility/Random.h"
 
+//#define RANDOM_SEED
+
 bool envStep(const size_t& action, double& reward, Tensor& nextState, bool v = false);
 
 void loadXOR(unsigned _size, rna::DataSet& _data);
@@ -22,6 +24,18 @@ const auto deviceType = CL_DEVICE_TYPE_ALL;
 
 int main()
 {
+    #ifdef RANDOM_SEED
+        Random::setSeed();
+        std::cout << "Seed: " << Random::getSeed() << std::endl;
+    #else
+        Random::setSeed(1513874735);
+
+        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+        SetConsoleTextAttribute(hConsole, 12);
+        std::cout << "Warning: seed is fixed to " << Random::getSeed() << std::endl;
+        SetConsoleTextAttribute(hConsole, 7);
+    #endif
+
     std::string selection = "test3";
 
     if (selection.empty())
@@ -128,9 +142,9 @@ int main()
         if ("GPU" == device)
             ann.openCL(deviceType);
 
-        rna::SGD trainer(ann);
+        rna::Supervised trainer(ann);
             trainer.setLoss<rna::NLL>();
-            trainer.setOptimizer<rna::Momentum>(0.1f, 0.9f);
+            trainer.setOptimizer<rna::SGD>(0.1f, 0.9f);
 
         trainer.train(dataSet, 1000, 100, 1);
 
@@ -165,9 +179,9 @@ int main()
         ann.addLayer( new rna::Linear(HU, 1) );
         ann.addLayer( new rna::Tanh() );
 
-        rna::SGD trainer(ann);
+        rna::Supervised trainer(ann);
             trainer.setLoss<rna::MSE>();
-            trainer.setOptimizer<rna::Momentum>(0.001f, 0.9f);
+            trainer.setOptimizer<rna::SGD>(0.001f, 0.9f);
 
         trainer.train(dataSet, 5000, 500);
 
@@ -202,9 +216,9 @@ int main()
 
         std::cout << "Starting training on " << device << std::endl;
 
-        rna::SGD trainer(ann);
+        rna::Supervised trainer(ann);
             trainer.setLoss<rna::NLL>();
-            trainer.setOptimizer<rna::Momentum>(0.1f, 0.9f);
+            trainer.setOptimizer<rna::SGD>(0.1f, 0.9f);
 
         trainer.train(dataSet, 1000, 100, 32);
 
@@ -241,9 +255,9 @@ int main()
 
         std::cout << "ANN created" << std::endl;
 
-        rna::SGD trainer(ann);
+        rna::Supervised trainer(ann);
             trainer.setLoss<rna::NLL>();
-            trainer.setOptimizer<rna::Momentum>(0.1f, 0.9f);
+            trainer.setOptimizer<rna::SGD>(0.1f, 0.9f);
 
         trainer.train(dataSet, 1000, 100, 32);
 
