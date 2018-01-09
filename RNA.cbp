@@ -7,7 +7,7 @@
 		<Option compiler="gcc" />
 		<Build>
 			<Target title="Debug">
-				<Option output="bin/RNA" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Debug/RNA" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
@@ -27,7 +27,7 @@
 				</Linker>
 			</Target>
 			<Target title="Release">
-				<Option output="bin/RNA" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Release/RNA" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
@@ -44,23 +44,27 @@
 		</Build>
 		<Compiler>
 			<Add option="-fexceptions" />
-			<Add directory="C:/Users/Sophie/Libs/SFML-2.4.2/include" />
+			<Add directory="D:/Adrien/PROG/Libs/SFML-2.4.2/include" />
 		</Compiler>
 		<Linker>
 			<Add library="C:/Windows/System32/OpenCL.dll" />
-			<Add directory="C:/Users/Sophie/Libs/SFML-2.4.2/lib" />
+			<Add directory="D:/Adrien/PROG/Libs/SFML-2.4.2/lib" />
 		</Linker>
 		<Unit filename="res/OpenCL/activations.cl" />
 		<Unit filename="res/OpenCL/convolutional.cl" />
+		<Unit filename="res/OpenCL/dropout.cl" />
 		<Unit filename="res/OpenCL/linear.cl" />
 		<Unit filename="res/OpenCL/logSoftMax.cl" />
 		<Unit filename="res/OpenCL/losses.cl" />
 		<Unit filename="res/OpenCL/maxPooling.cl" />
+		<Unit filename="res/OpenCL/rmsprop.cl" />
 		<Unit filename="res/OpenCL/sgd.cl" />
 		<Unit filename="src/Image.cpp" />
 		<Unit filename="src/Image.h" />
 		<Unit filename="src/Layers/Convolutional.cpp" />
 		<Unit filename="src/Layers/Convolutional.h" />
+		<Unit filename="src/Layers/Dropout.cpp" />
+		<Unit filename="src/Layers/Dropout.h" />
 		<Unit filename="src/Layers/Layer.cpp" />
 		<Unit filename="src/Layers/Layer.h" />
 		<Unit filename="src/Layers/Linear.cpp" />

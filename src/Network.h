@@ -33,13 +33,13 @@ class Network
         void releaseCL();
 
         const Tensor& feedForward(const Tensor& _input);
-        void backprop(const Tensor& _input, const Tensor& _gradOutput);
+        void backprop(const Tensor& _input, const Tensor& _outputGrad);
 
         const Tensor& feedForwardCPU(const Tensor& _input);
         const Tensor& feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch);
 
-        void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
-        void backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
+        void backpropCPU(const Tensor& _input, const Tensor& _outputGrad);
+        void backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch);
 
 
         cl::Context& getContext();

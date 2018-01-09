@@ -63,43 +63,43 @@ void LogSoftMax::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _i
     forwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
 }
 
-void LogSoftMax::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
+void LogSoftMax::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
 {
     inputGrad.resizeAs(_input);
 
     if (_input.nDimensions() == 1)
     {
         Tensor::value_type sum = 0.0;
-        for (unsigned i(0) ; i < _gradOutput.nElements() ; i++)
-            sum += _gradOutput[i];
+        for (unsigned i(0) ; i < _outputGrad.nElements() ; i++)
+            sum += _outputGrad[i];
 
         for (unsigned i(0) ; i < inputGrad.nElements() ; i++)
-            inputGrad[i] = _gradOutput[i] - exp(output[i])*sum;
+            inputGrad[i] = _outputGrad[i] - exp(output[i])*sum;
     }
     else if (_input.nDimensions() == 2)
     {
-        for (unsigned i(0); i < _gradOutput.size(0); i++)
+        for (unsigned i(0); i < _outputGrad.size(0); i++)
         {
             Tensor::value_type sum = 0.0;
-            for (unsigned j(0) ; j < _gradOutput.size(1) ; j++)
-                sum += _gradOutput(i, j);
+            for (unsigned j(0) ; j < _outputGrad.size(1) ; j++)
+                sum += _outputGrad(i, j);
 
-            for (unsigned j(0) ; j < _gradOutput.size(1) ; j++)
-                inputGrad(i, j) = _gradOutput(i, j) - exp(output(i, j))*sum;
+            for (unsigned j(0) ; j < _outputGrad.size(1) ; j++)
+                inputGrad(i, j) = _outputGrad(i, j) - exp(output(i, j))*sum;
         }
     }
 }
 
-void LogSoftMax::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void LogSoftMax::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
 
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_inputBatch);
-    backwardKernel.setArg(2,_gradOutputBatch);
+    backwardKernel.setArg(2,_outputGradBatch);
     backwardKernel.setArg(3, output);
-    backwardKernel.setArg(4,_gradOutputBatch.size(1));
+    backwardKernel.setArg(4,_outputGradBatch.size(1));
 
     backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
 }

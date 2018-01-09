@@ -5,6 +5,7 @@
 #include "Losses/Loss.h"
 #include "Optimizers/Optimizer.h"
 
+#include <functional>
 
 namespace rna
 {
@@ -17,6 +18,7 @@ struct Example
 using DataSet = std::vector<Example>;
 
 void randomMinibatch(const DataSet& _dataSet, Tensor& _inputBatch, Tensor& _outputBatch, const unsigned& _minibatchSize);
+void buildBatches(const DataSet& _src, DataSet& _dst, unsigned _size);
 
 
 class Supervised
@@ -26,6 +28,7 @@ class Supervised
         ~Supervised();
 
         void train(const DataSet& _dataSet, unsigned _maxEpochs, unsigned _epochsBetweenReports, unsigned _minibatchSize = 32);
+        void earlyStopping(const DataSet& _training, const DataSet& _testing, std::function<unsigned(Network&, DataSet&)> _validate, unsigned _steps, unsigned _patience, unsigned _minibatchSize = 32);
 
         template<typename L, typename... Args>
         void setLoss(Args&&... args)
@@ -42,7 +45,7 @@ class Supervised
         }
 
     private:
-        rna::Network* network;
+        Network* network;
 
         Loss* loss;
         Optimizer* optimizer;

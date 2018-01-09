@@ -53,11 +53,11 @@ void Linear::openCL(cl::Context& _context)
     backwardKernel.create(p, "backpropLinear");
     paramsGradKernel.create(p, "paramsGradLinear");
 
-    weights.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-    bias.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    weights.openCL(_context);
+    bias.openCL(_context);
 
-    weightsGrad.openCL(_context());
-    biasGrad.openCL(_context());
+    weightsGrad.openCL(_context);
+    biasGrad.openCL(_context);
 
 
     forwardKernel.setArg(2, weights);
@@ -106,54 +106,54 @@ void Linear::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _input
     _commandQueue.enqueue(forwardKernel, output.size());
 }
 
-void Linear::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
+void Linear::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
 {
     if (_input.nDimensions() == 1)
     {
-        mulmv(inputGrad, weights.getTranspose(), _gradOutput);
+        mulmv(inputGrad, weights.getTranspose(), _outputGrad);
 
-        weightsGrad.addOuterProduct(_gradOutput, _input);
-        biasGrad += _gradOutput;
+        weightsGrad.addOuterProduct(_outputGrad, _input);
+        biasGrad += _outputGrad;
     }
     else if (_input.nDimensions() == 2)
     {
-        mulmm(inputGrad, _gradOutput, weights);
+        mulmm(inputGrad, _outputGrad, weights);
 
-        Tensor temp; mulmtm(temp, _gradOutput, _input);
+        Tensor temp; mulmtm(temp, _outputGrad, _input);
         weightsGrad += temp;
 
-        for (unsigned i(0) ; i < _gradOutput.size(0) ; i++)
-            for (unsigned j(0) ; j < _gradOutput.size(1) ; j++)
-                biasGrad(j) += _gradOutput(i, j);
+        for (unsigned i(0) ; i < _outputGrad.size(0) ; i++)
+            for (unsigned j(0) ; j < _outputGrad.size(1) ; j++)
+                biasGrad(j) += _outputGrad(i, j);
     }
 }
 
-void Linear::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void Linear::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    updateInputGrad(_commandQueue, _inputBatch, _gradOutputBatch);
-    updateParamsGrad(_commandQueue, _inputBatch, _gradOutputBatch);
+    updateInputGrad(_commandQueue, _inputBatch, _outputGradBatch);
+    updateParamsGrad(_commandQueue, _inputBatch, _outputGradBatch);
 }
 
-void Linear::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void Linear::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    inputGrad.resizeAs({_gradOutputBatch.size(0), weights.size(1)});
+    inputGrad.resizeAs({_outputGradBatch.size(0), weights.size(1)});
     inputGrad.openCL(_commandQueue.getContext());
 
     backwardKernel.setArg(0, inputGrad);
-    backwardKernel.setArg(1,_gradOutputBatch);
+    backwardKernel.setArg(1,_outputGradBatch);
 
     _commandQueue.enqueue(backwardKernel, inputGrad.size());
 }
 
-// TODO: use two kernels
-void Linear::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+// TODO: use two kernels ?
+void Linear::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    paramsGradKernel.setArg(2, _gradOutputBatch);
-    paramsGradKernel.setArg(3, _inputBatch);
-    paramsGradKernel.setArg(4, _inputBatch.size(0));
+    paramsGradKernel.setArg(2,_outputGradBatch);
+    paramsGradKernel.setArg(3,_inputBatch);
+    paramsGradKernel.setArg(4,_inputBatch.size(0));
     paramsGradKernel.setArg(5,  weights.size(1));
 
-    _commandQueue.enqueue(backwardKernel, { weights.size(0) });
+    _commandQueue.enqueue(paramsGradKernel, { weights.size(0) });
 }
 
 void Linear::getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)

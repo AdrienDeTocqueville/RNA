@@ -3,7 +3,7 @@ __kernel void gradientMSE(__global float* _output, __global float* _estimation, 
 {
     const int index = get_global_id(0)*get_global_size(1) + get_global_id(1);
 
-    _output[index] = 2.0f * (_estimation[index] - _target[index]);
+    _output[index] = _estimation[index] - _target[index];
 }
 
 __kernel void gradientNLL(__global float* _output, __global float* _target, int _inputWidth)

@@ -17,8 +17,8 @@ class Layer
         virtual void feedForwardCPU(const Tensor& _input) = 0;
         virtual void feedForwardCL(cl::CommandQueue&, const Tensor&) = 0;
 
-        virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput) = 0;
-        virtual void backpropCL(cl::CommandQueue&, const Tensor&, const Tensor&) {} // TODO: virtual pure
+        virtual void backpropCPU(const Tensor& _input, const Tensor& _outputGrad) = 0;
+        virtual void backpropCL(cl::CommandQueue&, const Tensor&, const Tensor&) = 0;
 
         virtual void updateInputGrad(cl::CommandQueue&, const Tensor&, const Tensor&) {};
         virtual void updateParamsGrad(cl::CommandQueue&, const Tensor&, const Tensor&) {};
@@ -39,7 +39,7 @@ class Layer
         static Tensor::value_type BIAS_INIT_MAX;
 
     protected:
-        virtual void openCL(cl::Context&) {} // TODO: virtual pure
+        virtual void openCL(cl::Context&) = 0;
         virtual void releaseCL();
 
         std::string type;

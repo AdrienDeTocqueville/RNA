@@ -1,6 +1,7 @@
 #include "activations.h"
 
 #include <cmath>
+#include <fstream>
 
 #include "../Utility/Error.h"
 
@@ -42,15 +43,15 @@ void Activation::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _i
     forwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
 }
 
-void Activation::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
+void Activation::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
 {
     inputGrad.resizeAs(_input);
 
     for (unsigned i(0) ; i < inputGrad.nElements() ; i++)
-        inputGrad[i] = df(_input[i]) * _gradOutput[i];
+        inputGrad[i] = df(_input[i]) * _outputGrad[i];
 }
 
-void Activation::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void Activation::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
@@ -59,8 +60,9 @@ void Activation::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
 
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_inputBatch);
-    backwardKernel.setArg(2,_gradOutputBatch);
-    backwardKernel.setArg(3, sizeof(cl_int), &inputWidth);
+    backwardKernel.setArg(2, output);
+    backwardKernel.setArg(3,_outputGradBatch);
+    backwardKernel.setArg(4, sizeof(cl_int), &inputWidth);
 
     backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
 }
@@ -105,6 +107,42 @@ Tensor::value_type ReLU::f(Tensor::value_type _value)
 Tensor::value_type ReLU::df(Tensor::value_type _value)
 {
     return (_value < 0.0)? 0.0: 1.0;
+}
+
+
+/// ELU
+ELU::ELU(std::ifstream& _file):
+    Activation("ELU")
+{
+    _file >> alpha;
+}
+
+void ELU::openCL(cl::Context& _context)
+{
+    auto& p = _context.getProgram("res/OpenCL/activations.cl");
+
+    forwardKernel.create(p, "feedForwardELU");
+    backwardKernel.create(p, "backpropELU");
+
+    forwardKernel.setArg(3, alpha);
+    backwardKernel.setArg(5, alpha);
+}
+
+Tensor::value_type ELU::f(Tensor::value_type _value)
+{
+    return _value < 0.0? alpha * (exp(_value)-1.0): _value;
+}
+
+Tensor::value_type ELU::df(Tensor::value_type _value)
+{
+    return _value < 0.0? alpha * exp(_value): 1.0;
+}
+
+void ELU::saveToFile(std::ofstream& _file) const
+{
+    Layer::saveToFile(_file);
+
+    _file << alpha << std::endl;
 }
 
 }

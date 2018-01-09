@@ -7,6 +7,11 @@
 
 long int Random::seed = 0;
 
+bool Random::nextBool()
+{
+    return (double)rand()/RAND_MAX < 0.5;
+}
+
 int Random::nextInt(int _min, int _max)
 {
     return _min + (rand() % (_max - _min));

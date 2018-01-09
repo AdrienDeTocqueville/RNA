@@ -6,6 +6,8 @@
 class Random
 {
     public:
+        static bool nextBool();
+
         // range is [_min, _max[
         static int nextInt(int _min = 0, int _max = 2);
         static float nextFloat(float _min = 0.0f, float _max = 1.0f);

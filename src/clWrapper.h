@@ -1,9 +1,11 @@
 #pragma once
 
+#include <iostream> // TODO: remove
+
 #include <CL/opencl.h>
 #include <string>
-#include <map>
 #include <vector>
+#include <map>
 
 class Tensor;
 using coords_t = std::vector<size_t>;
@@ -62,6 +64,7 @@ class CommandQueue: public Wrapper<cl_command_queue>
 {
     public:
         CommandQueue() {}
+        CommandQueue(const Context& _context, bool _inOrder = true) { create(_context, _inOrder); }
         CommandQueue(const CommandQueue& c) = delete;
 
         void create(const Context& _context, bool _inOrder = true);
@@ -98,7 +101,10 @@ class Kernel: public Wrapper<cl_kernel>
 
         void setArg(cl_uint _index, size_t _size, const void* _value);
         void setArg(cl_uint _index, const Tensor& _value);
-        void setArg(cl_uint _index, int _value);
+
+        template <typename T>
+        void setArg(cl_uint _index, T _value)
+        { setArg(_index, sizeof(T), &_value); }
 
         void enqueue(CommandQueue& _commandQueue, const coords_t& _globalWorkSize);
 };

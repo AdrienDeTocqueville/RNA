@@ -8,28 +8,56 @@ namespace rna
 class RMSProp: public Optimizer
 {
     public:
-        RMSProp(Tensor::value_type _learningRate, Tensor::value_type _rho, Tensor::value_type _rateDecay):
-            learningRate(_learningRate), rho(_rho), rateDecay(_rateDecay), epsilon(0.01)
+        RMSProp(Tensor::value_type _learningRate, Tensor::value_type _rho = 0.9, Tensor::value_type _learningRateDecay = 0.0, Tensor::value_type _delta = 10e-6):
+            learningRate(_learningRate), learningRateDecay(_learningRateDecay),
+            rho(_rho), delta(_delta),
+            iteration(0)
         { }
 
         void init(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
         {
+            r.clear();
+            r.reserve(_params.size());
+
+            for (size_t i(0); i < _params.size(); i++)
+                r.emplace_back(_params[i]->size(), 0.0);
         }
 
         void updateParams(cl::CommandQueue& _commandQueue, std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
         {
+//            learningRate *= (1.0 / (1.0 + learningRateDecay * iteration++));
+//            updateKernel.setArg(3, learningRate);
+
+            for (size_t i(0); i < r.size(); i++)
+            {
+                updateKernel.setArg(0, *_params[i]);
+                updateKernel.setArg(1, *_paramsGrad[i]);
+                updateKernel.setArg(2, r[i]);
+
+                _commandQueue.enqueue(updateKernel, { r[i].nElements() });
+            }
         }
 
         void openCL(cl::Context& _context)
         {
             auto& p = _context.getProgram("res/OpenCL/rmsprop.cl");
-            updater.create(p, "updateParam");
+            updateKernel.create(p, "updateParam");
+
+            updateKernel.setArg(3, learningRate);
+            updateKernel.setArg(4, rho);
+            updateKernel.setArg(5, delta);
+
+            for (size_t i(0); i < r.size(); i++)
+                r[i].openCL(_context);
         }
 
     protected:
-        Tensor::value_type learningRate, rho, rateDecay, epsilon;
+        Tensor::value_type learningRate, learningRateDecay, rho, delta;
+        int iteration;
 
-        cl::Kernel updater;
+        std::vector<Tensor> r;
+
+        cl::Kernel updateKernel;
 };
 
 }

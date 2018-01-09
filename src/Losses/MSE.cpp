@@ -9,7 +9,7 @@ void MSE::openCL(cl::Context& _context)
 {
     auto& p = _context.getProgram("res/OpenCL/losses.cl");
 
-    lossKernel.create(p, "lossMSE");
+//    lossKernel.create(p, "lossMSE");
     gradientKernel.create(p, "gradientMSE");
 }
 
@@ -31,6 +31,16 @@ const Tensor& MSE::getGradient(const Tensor& _estimation, const Tensor& _target)
 
 const Tensor& MSE::getGradientCL(cl::CommandQueue& _commandQueue, const Tensor& _estimationBatch, const Tensor& _targetBatch)
 {
+    gradient.resize(_estimationBatch.size());
+    gradient.openCL(_commandQueue.getContext());
+
+    _targetBatch.openCL(_commandQueue.getContext());
+
+    gradientKernel.setArg(0, gradient);
+    gradientKernel.setArg(1,_estimationBatch);
+    gradientKernel.setArg(2,_targetBatch);
+
+    gradientKernel.enqueue(_commandQueue, _estimationBatch.size());
 
     return gradient;
 }

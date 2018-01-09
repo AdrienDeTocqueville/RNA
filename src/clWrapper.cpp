@@ -260,11 +260,6 @@ void Kernel::setArg(cl_uint _index, const Tensor& _value)
     setArg(_index, sizeof(cl_mem), &_value.getBuffer());
 }
 
-void Kernel::setArg(cl_uint _index, int _value)
-{
-    setArg(_index, sizeof(int), &_value);
-}
-
 void Kernel::enqueue(CommandQueue& _commandQueue, const coords_t& _globalWorkSize)
 {
 	cl_int error = clEnqueueNDRangeKernel(_commandQueue(), id, _globalWorkSize.size(), nullptr, _globalWorkSize.data(), nullptr, 0, nullptr, nullptr);

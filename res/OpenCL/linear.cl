@@ -14,33 +14,33 @@ __kernel void feedForwardLinear(__global float* _output, __global float* _input,
     _output[tx * get_global_size(1) + ty] = value + _bias[ty];
 }
 
-__kernel void backpropLinear(__global float* _inputGrad, __global float* _gradOutput, __global float* _weights, int _gradOutputWidth)
+__kernel void backpropLinear(__global float* _inputGrad, __global float* _outputGrad, __global float* _weights, int _outputGradWidth)
 {
     const int tx = get_global_id(0);
     const int ty = get_global_id(1);
 
     float value = 0.0f;
-    for (int k = 0; k < _gradOutputWidth; ++k)
+    for (int k = 0; k < _outputGradWidth; ++k)
     {
         float weight = _weights[k * get_global_size(1) + ty];
-        float gradOutput = _gradOutput[tx * _gradOutputWidth + k];
-        value += weight * gradOutput;
+        float outputGrad = _outputGrad[tx * _outputGradWidth + k];
+        value += weight * outputGrad;
     }
 
     _inputGrad[tx * get_global_size(1) + ty] = value;
 }
 
-__kernel void paramsGradLinear(__global float* _weightsGrad, __global float* _biasGrad, __global float* _gradOutput, __global float* _input, int _batchSize, int _inputWidth)
+__kernel void paramsGradLinear(__global float* _weightsGrad, __global float* _biasGrad, __global float* _outputGrad, __global float* _input, int _batchSize, int _inputWidth)
 {
     const int j = get_global_id(0);
 
     for (int i = 0; i < _batchSize; ++i)
     {
-        float gradOutput = _gradOutput[i * get_global_size(0) + j];
+        float outputGrad = _outputGrad[i * get_global_size(0) + j];
 
         for (int k = 0; k < _inputWidth; ++k)
-            _weightsGrad[j * _inputWidth + k] += gradOutput * _input[i * _inputWidth + k];
+            _weightsGrad[j * _inputWidth + k] += outputGrad * _input[i * _inputWidth + k];
 
-        _biasGrad[j] += gradOutput;
+        _biasGrad[j] += outputGrad;
     }
 }

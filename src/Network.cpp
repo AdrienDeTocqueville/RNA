@@ -3,8 +3,6 @@
 #include <iostream>
 #include <fstream>
 
-#include "windows.h"
-
 namespace rna
 {
 
@@ -79,6 +77,9 @@ Network& Network::operator=(Network _network)
 void Network::addLayer(Layer* _layer)
 {
     layers.push_back(_layer);
+
+    if (context)
+        _layer->openCL(context);
 }
 
 Layer* Network::getLayer(size_t _index)
@@ -126,15 +127,15 @@ const Tensor& Network::feedForward(const Tensor& _input)
     }
 }
 
-void Network::backprop(const Tensor& _input, const Tensor& _gradOutput)
+void Network::backprop(const Tensor& _input, const Tensor& _outputGrad)
 {
     if (!context)
-        backpropCPU(_input, _gradOutput);
+        backpropCPU(_input, _outputGrad);
 
     else
     {
         cl::CommandQueue commandQueue; commandQueue.create(context, true);
-        backpropCL(commandQueue, _input, _gradOutput);
+        backpropCL(commandQueue, _input, _outputGrad);
         commandQueue.join();
     }
 }
@@ -201,15 +202,22 @@ bool Network::loadFromFile(const std::string& _file)
         if ("Linear" == layerType)
             layer = new Linear(file);
 
-        else if ("Reshape" == layerType)
-            layer = new Reshape(file);
-
         else if ("Convolutional" == layerType)
             layer = new Convolutional(file);
 
 
+        else if ("LogSoftMax" == layerType)
+            layer = new LogSoftMax();
+
         else if ("MaxPooling" == layerType)
             layer = new MaxPooling();
+
+        else if ("Reshape" == layerType)
+            layer = new Reshape(file);
+
+        else if ("Dropout" == layerType)
+            layer = new Dropout(file);
+
 
         else if ("Tanh" == layerType)
             layer = new Tanh();
@@ -217,8 +225,8 @@ bool Network::loadFromFile(const std::string& _file)
         else if ("ReLU" == layerType)
             layer = new ReLU();
 
-        else if ("LogSoftMax" == layerType)
-            layer = new LogSoftMax();
+        else if ("ELU" == layerType)
+            layer = new ELU(file);
 
         else
             std::cout << "Unknown layer type: " << layerType << std::endl;
@@ -244,7 +252,7 @@ const Tensor& Network::feedForwardCPU(const Tensor& _input)
 
 const Tensor& Network::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
 
 
     layers.front()->feedForwardCL(_commandQueue, _inputBatch);
@@ -256,9 +264,9 @@ const Tensor& Network::feedForwardCL(cl::CommandQueue& _commandQueue, const Tens
     return layers.back()->getOutput();
 }
 
-void Network::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
+void Network::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
 {
-    const Tensor* g = &_gradOutput;
+    const Tensor* g = &_outputGrad;
 
     for (unsigned l(layers.size()-1) ; l >= 1 ; l--)
     {
@@ -269,13 +277,13 @@ void Network::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
     layers[0]->backpropCPU(_input, *g);
 }
 
-void Network::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void Network::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-    _gradOutputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
+    _outputGradBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
 
 
-    const Tensor* g = &_gradOutputBatch;
+    const Tensor* g = &_outputGradBatch;
 
     for (unsigned l(layers.size()-1) ; l >= 1 ; l--)
     {

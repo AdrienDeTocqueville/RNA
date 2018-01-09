@@ -155,9 +155,9 @@ int ReverseInt(int i)
     return((int)ch1<<24)+((int)ch2<<16)+((int)ch3<<8)+ch4;
 }
 
-void LoadMNISTImages(rna::DataSet& _data)
+void LoadMNISTImages(rna::DataSet& _data, std::string _file)
 {
-    std::ifstream file ("res/MNIST/train-images.idx3-ubyte", std::ios::binary);
+    std::ifstream file (_file, std::ios::binary);
 
     if (file)
     {
@@ -176,9 +176,10 @@ void LoadMNISTImages(rna::DataSet& _data)
         file.read((char*)&columns,sizeof(columns));
         columns = ReverseInt(columns);
 
+        _data.resize(number_of_images);
         for (auto& example: _data)
         {
-            example.input.resize({rows, columns});
+            example.input.resize({1, rows, columns});
 
             for (unsigned i(0) ; i < rows ; i++)
             {
@@ -187,19 +188,18 @@ void LoadMNISTImages(rna::DataSet& _data)
                     unsigned char temp = 0;
                     file.read((char*)&temp, sizeof(temp));
 
-                    example.input(j, i) = (temp/255.0)*2.0 - 1.0;
-//                    example.input(j, i) = temp / 255.0;
+                    example.input(0, j, i) = (temp/255.0)*2.0 - 1.0;
                 }
             }
         }
     }
     else
-        std::cout << "Unable to open: res/MNIST/train-images.idx3-ubyte" << std::endl;
+        std::cout << "Unable to open: " << _file << std::endl;
 }
 
-void LoadMNISTLabels(rna::DataSet& _data)
+void LoadMNISTLabels(rna::DataSet& _data, std::string _file)
 {
-    std::ifstream file ("res/MNIST/train-labels.idx1-ubyte", std::ios::binary);
+    std::ifstream file (_file, std::ios::binary);
 
     if (file)
     {
@@ -212,6 +212,7 @@ void LoadMNISTLabels(rna::DataSet& _data)
         file.read((char*)&number_of_items, sizeof(number_of_items));
         number_of_items= ReverseInt(number_of_items);
 
+        _data.resize(number_of_items);
         for (auto& example: _data)
         {
             example.output.resize({1});
@@ -223,5 +224,5 @@ void LoadMNISTLabels(rna::DataSet& _data)
 
     }
     else
-        std::cout << "Unable to open: res/MNIST/train-labels.idx1-ubyte" << std::endl;
+        std::cout << "Unable to open: " << _file << std::endl;
 }

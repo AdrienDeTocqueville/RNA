@@ -16,12 +16,14 @@ class Reshape: public Layer
         virtual void feedForwardCPU(const Tensor& _input);
         virtual void feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch);
 
-        virtual void backpropCPU(const Tensor& _input, const Tensor& _gradOutput);
-        virtual void backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch);
+        virtual void backpropCPU(const Tensor& _input, const Tensor& _outputGrad);
+        virtual void backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch);
 
         virtual void saveToFile(std::ofstream& _file) const override;
 
     private:
+        virtual void openCL(cl::Context& _context) override;
+
         coords_t outputSize;
         bool useMinibatch;
 };

@@ -29,7 +29,7 @@ __kernel void feedForwardMaxPooling(__global float* _output, __global int* _indi
     _indices[outputIndex] = (float)maxIndex;
 }
 
-__kernel void backpropMaxPooling(__global float* _inputGrad, __global float* _gradOutput, __global float* _indices, int _batch)
+__kernel void backpropMaxPooling(__global float* _inputGrad, __global float* _outputGrad, __global float* _indices, int _batch)
 {
     const int tc = get_global_id(0);
     const int tx = get_global_id(1);
@@ -39,5 +39,5 @@ __kernel void backpropMaxPooling(__global float* _inputGrad, __global float* _gr
     int colorChannel = tc * get_global_size(1)*get_global_size(2);
     int outputIndex = batchIndex + colorChannel + tx * get_global_size(2) + ty;
 
-    _inputGrad[(int)_indices[outputIndex]] = _gradOutput[outputIndex];
+    _inputGrad[(int)_indices[outputIndex]] = _outputGrad[outputIndex];
 }

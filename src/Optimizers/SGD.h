@@ -17,7 +17,7 @@ class SGD: public Optimizer
             paramsDelta.clear();
             paramsDelta.reserve(_params.size());
 
-            for (size_t i(0); i < paramsDelta.size(); i++)
+            for (size_t i(0); i < _params.size(); i++)
                 paramsDelta.emplace_back(_params[i]->size(), 0.0);
         }
 
@@ -25,21 +25,21 @@ class SGD: public Optimizer
         {
             for (size_t i(0); i < paramsDelta.size(); i++)
             {
-                updater.setArg(0, *_params[i]);
-                updater.setArg(1, *_paramsGrad[i]);
-                updater.setArg(2, paramsDelta[i]);
+                updateKernel.setArg(0, *_params[i]);
+                updateKernel.setArg(1, *_paramsGrad[i]);
+                updateKernel.setArg(2, paramsDelta[i]);
 
-                _commandQueue.enqueue(updater, { paramsDelta[i].nElements() });
+                _commandQueue.enqueue(updateKernel, { paramsDelta[i].nElements() });
             }
         }
 
         void openCL(cl::Context& _context)
         {
             auto& p = _context.getProgram("res/OpenCL/sgd.cl");
-            updater.create(p, "updateParam");
+            updateKernel.create(p, "updateParam");
 
-            updater.setArg(3, learningRate);
-            updater.setArg(4, inertia);
+            updateKernel.setArg(3, learningRate);
+            updateKernel.setArg(4, inertia);
 
             for (size_t i(0); i < paramsDelta.size(); i++)
                 paramsDelta[i].openCL(_context);
@@ -50,7 +50,7 @@ class SGD: public Optimizer
 
         std::vector<Tensor> paramsDelta;
 
-        cl::Kernel updater;
+        cl::Kernel updateKernel;
 };
 
 }

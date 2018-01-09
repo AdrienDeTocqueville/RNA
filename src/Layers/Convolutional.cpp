@@ -60,14 +60,15 @@ void Convolutional::openCL(cl::Context& _context)
     forwardKernel.create(p, "feedForwardConvolutional");
     backwardKernel.create(p, "backpropConvolutional");
 
-    paramsGradKernel.create(p, "paramsGradConvolutional");
+    weightsGradKernel.create(p, "weightsGradConvolutional");
+    biasGradKernel.create(p, "biasGradConvolutional");
 
 
-    weights.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
-    bias.openCL(_context(), CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR);
+    weights.openCL(_context);
+    bias.openCL(_context);
 
-    weightsGrad.openCL(_context());
-    biasGrad.openCL(_context());
+    weightsGrad.openCL(_context);
+    biasGrad.openCL(_context);
 
 
     forwardKernel.setArg(2, weights);
@@ -80,13 +81,21 @@ void Convolutional::openCL(cl::Context& _context)
     backwardKernel.setArg(3, weights.size(0));
     backwardKernel.setArg(4, weights.size(2));
     backwardKernel.setArg(5, weights.size(3));
+
+    weightsGradKernel.setArg(0, weightsGrad);
+    weightsGradKernel.setArg(4, bias.size(0));
+    weightsGradKernel.setArg(5, bias.size(1));
+    weightsGradKernel.setArg(6, bias.size(2));
+
+    biasGradKernel.setArg(0, biasGrad);
 }
 
 void Convolutional::releaseCL()
 {
 	Layer::releaseCL();
 
-    paramsGradKernel.release();
+    weightsGradKernel.release();
+    biasGradKernel.release();
 }
 
 void Convolutional::feedForwardCPU(const Tensor& _input)
@@ -110,27 +119,27 @@ void Convolutional::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor&
     }
 }
 
-void Convolutional::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
+void Convolutional::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
 {
-    convGradInput(inputGrad, weights, _gradOutput);
+    convGradInput(inputGrad, weights, _outputGrad);
 
-    convGradWeight(weightsGrad, _gradOutput, _input);
-    biasGrad += _gradOutput;
+    convGradWeight(weightsGrad, _outputGrad, _input);
+    biasGrad += _outputGrad;
 }
 
-void Convolutional::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void Convolutional::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    updateInputGrad(_commandQueue, _inputBatch, _gradOutputBatch);
-    updateParamsGrad(_commandQueue, _inputBatch, _gradOutputBatch);
+    updateInputGrad(_commandQueue, _inputBatch, _outputGradBatch);
+    updateParamsGrad(_commandQueue, _inputBatch, _outputGradBatch);
 }
 
-void Convolutional::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void Convolutional::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
 
     backwardKernel.setArg(0, inputGrad);
-    backwardKernel.setArg(1,_gradOutputBatch);
+    backwardKernel.setArg(1,_outputGradBatch);
 
     for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
     {
@@ -139,20 +148,25 @@ void Convolutional::updateInputGrad(cl::CommandQueue& _commandQueue, const Tenso
     }
 }
 
-// TODO: use two kernels
-void Convolutional::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+// TODO: finish
+void Convolutional::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    // weightsGrad, biasGrad
-//    paramsGradKernel.setArg(0, weightsGrad);
-//    paramsGradKernel.setArg(1, biasGrad);
-//    paramsGradKernel.setArg(2, _gradOutputBatch);
-//    paramsGradKernel.setArg(3, _inputBatch);
-//
-//    for (int i(0) ; i < (int)weights.size(0) ; i++)
-//    {
-//        paramsGradKernel.setArg(6, i);
-//        paramsGradKernel.enqueue(_commandQueue, {inputGrad.size(1), inputGrad.size(2), inputGrad.size(3)});
-//    }
+    // weightsGrad
+    weightsGradKernel.setArg(1,_outputGradBatch);
+    weightsGradKernel.setArg(2,_inputBatch);
+    weightsGradKernel.setArg(3,_outputGradBatch.size(0));
+
+    for (int i(0) ; i < (int)weights.size(0) ; i++)
+    {
+        weightsGradKernel.setArg(7, i);
+        _commandQueue.enqueue(weightsGradKernel, {weightsGrad.size(1), weightsGrad.size(2), weightsGrad.size(3)});
+    }
+
+    // biasGrad
+    biasGradKernel.setArg(1,_outputGradBatch);
+    biasGradKernel.setArg(2,_outputGradBatch.size(0));
+
+    _commandQueue.enqueue(biasGradKernel, biasGrad.size());
 }
 
 void Convolutional::getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
@@ -206,14 +220,14 @@ void Convolutional::saveToFile(std::ofstream& _file) const
 }
 
 
-void convGradInput(Tensor& inputGrad, const Tensor& kernel, const Tensor& gradOutput)
+void convGradInput(Tensor& inputGrad, const Tensor& kernel, const Tensor& outputGrad)
 {
     #ifdef TENSOR_SAFE
-        if (gradOutput.size(0) != kernel.size(0))
+        if (outputGrad.size(0) != kernel.size(0))
             std::cout << "convGradInput -> Kernel and source image don't have same the number of channels." << std::endl;
     #endif
 
-    coords_t resSize{ kernel.size(1), gradOutput.size(1)+kernel.size(2)-1, gradOutput.size(2)+kernel.size(3)-1 };
+    coords_t resSize{ kernel.size(1), outputGrad.size(1)+kernel.size(2)-1, outputGrad.size(2)+kernel.size(3)-1 };
     inputGrad.resize(resSize);
 
     for (unsigned k(0) ; k < inputGrad.size(0) ; k++)
@@ -231,10 +245,10 @@ void convGradInput(Tensor& inputGrad, const Tensor& kernel, const Tensor& gradOu
                         unsigned ii = i-kernel.size(2)+1 +u;
                         unsigned jj = j-kernel.size(3)+1 +v;
 
-                        if (ii < gradOutput.size(1) && jj < gradOutput.size(2))
+                        if (ii < outputGrad.size(1) && jj < outputGrad.size(2))
                         {
-                            for (unsigned c(0) ; c < gradOutput.size(0) ; c++)
-                                inputGrad(k, i, j) += kernel({c, k, u, v}) * gradOutput(c, ii, jj);
+                            for (unsigned c(0) ; c < outputGrad.size(0) ; c++)
+                                inputGrad(k, i, j) += kernel({c, k, u, v}) * outputGrad(c, ii, jj);
                         }
                     }
                 }
@@ -243,13 +257,13 @@ void convGradInput(Tensor& inputGrad, const Tensor& kernel, const Tensor& gradOu
     }
 }
 
-void convGradWeight(Tensor& weightsGrad, const Tensor& gradOutput, const Tensor& input)
+void convGradWeight(Tensor& weightsGrad, const Tensor& outputGrad, const Tensor& input)
 {
     #ifdef TENSOR_SAFE
         if (input.size(0) != weightsGrad.size(1))
             std::cout << "convGradWeight -> Kernel and source image don't have same the number of channels." << std::endl;
 
-        if (weightsGrad.size(0) != gradOutput.size(0) || weightsGrad.size(2) != input.size(1)-gradOutput.size(1)+1 || weightsGrad.size(3) != input.size(2)-gradOutput.size(2)+1)
+        if (weightsGrad.size(0) != outputGrad.size(0) || weightsGrad.size(2) != input.size(1)-outputGrad.size(1)+1 || weightsGrad.size(3) != input.size(2)-outputGrad.size(2)+1)
             std::cout << "convGradWeight -> Result do not fit in tensor." << std::endl;
     #endif
 
@@ -265,9 +279,9 @@ void convGradWeight(Tensor& weightsGrad, const Tensor& gradOutput, const Tensor&
                 {
                     unsigned shiftv = weightsGrad.size(3)-1-j;
 
-                    for (unsigned u(0) ; u < gradOutput.size(1) ; u++)
-                        for (unsigned v(0) ; v < gradOutput.size(2) ; v++)
-                            weightsGrad({k, c, i, j}) += gradOutput(k, u, v) * input(c, u+shiftu, v+shiftv);
+                    for (unsigned u(0) ; u < outputGrad.size(1) ; u++)
+                        for (unsigned v(0) ; v < outputGrad.size(2) ; v++)
+                            weightsGrad({k, c, i, j}) += outputGrad(k, u, v) * input(c, u+shiftu, v+shiftv);
                 }
             }
         }

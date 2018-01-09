@@ -55,7 +55,7 @@ void MaxPooling::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _i
     }
 }
 
-void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
+void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
 {
     inputGrad.resizeAs(_input);
     inputGrad.fill(0.0);
@@ -77,20 +77,21 @@ void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _gradOutput)
                 coord[2]++;
             }
 
-            inputGrad(coord) = _gradOutput(c, i, j);
+            inputGrad(coord) = _outputGrad(c, i, j);
         }
     }
 }
 
-void MaxPooling::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _gradOutputBatch)
+void MaxPooling::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
     inputGrad.resizeAs(_inputBatch);
-    inputGrad.fill(0.0);
     inputGrad.openCL(_commandQueue.getContext());
+    inputGrad.fill(0.0);
+    inputGrad.writeBuffer(_commandQueue);
 
     // inputGrad
     backwardKernel.setArg(0, inputGrad);
-    backwardKernel.setArg(1,_gradOutputBatch);
+    backwardKernel.setArg(1,_outputGradBatch);
     backwardKernel.setArg(2, indices);
 
     for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)

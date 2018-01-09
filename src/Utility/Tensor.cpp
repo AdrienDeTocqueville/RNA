@@ -260,9 +260,24 @@ const cl_mem& Tensor::getBuffer() const
     return buffer;
 }
 
+void Tensor::setBuffer(cl_mem _buffer)
+{
+    buffer = _buffer;
+}
+
 void Tensor::readBuffer(cl::CommandQueue& _commandQueue, const cl_bool& _blockingRead) const
 {
 	cl_int error = clEnqueueReadBuffer(_commandQueue(), getBuffer(), _blockingRead, 0, nElements() * sizeof(value_type), const_cast<void*>((void*)data()), 0, nullptr, nullptr);
+
+    #ifdef TENSOR_SAFE
+        if (error != CL_SUCCESS)
+            std::cout << "Tensor::readBuffer(): Unable to read buffer" << std::endl;
+    #endif // TENSOR_SAFE
+}
+
+void Tensor::writeBuffer(cl::CommandQueue& _commandQueue, const cl_bool& _blockingWrite) const
+{
+	cl_int error = clEnqueueWriteBuffer(_commandQueue(), getBuffer(), _blockingWrite, 0, nElements() * sizeof(value_type), const_cast<void*>((void*)data()), 0, nullptr, nullptr);
 
     #ifdef TENSOR_SAFE
         if (error != CL_SUCCESS)
