@@ -63,8 +63,7 @@ Network::~Network()
 {
     releaseCL();
 
-    for (unsigned i(0) ; i < layers.size() ; ++i)
-        delete layers[i];
+    clear();
 }
 
 Network& Network::operator=(Network _network)
@@ -85,6 +84,14 @@ void Network::addLayer(Layer* _layer)
 Layer* Network::getLayer(size_t _index)
 {
     return layers[_index];
+}
+
+void Network::clear()
+{
+    for (unsigned i(0) ; i < layers.size() ; ++i)
+        delete layers[i];
+
+    layers.clear();
 }
 
 void Network::openCL(cl_device_type _deviceType)
@@ -233,7 +240,7 @@ bool Network::loadFromFile(const std::string& _file)
 
 
         if (layer)
-            layers.push_back(layer);
+            addLayer(layer);
     }
 
     return true;

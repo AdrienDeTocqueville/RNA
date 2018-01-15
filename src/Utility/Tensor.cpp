@@ -89,11 +89,6 @@ Tensor& Tensor::operator=(Tensor _tensor)
 
 void Tensor::openCL(const cl::Context& _context, cl_mem_flags _flags) const
 {
-    openCL(_context(), _flags);
-}
-
-void Tensor::openCL(cl_context _context, cl_mem_flags _flags) const
-{
     if (buffer)
         return;
 
@@ -102,22 +97,11 @@ void Tensor::openCL(cl_context _context, cl_mem_flags _flags) const
     const void* host_ptr = (_flags&CL_MEM_USE_HOST_PTR || _flags&CL_MEM_COPY_HOST_PTR)? data(): nullptr;
 
     // TODO: Use clCreateImage2D for matrix ?
-    buffer = clCreateBuffer(_context, _flags, byteSize, const_cast<void*>(host_ptr), &error);
+    buffer = clCreateBuffer(_context(), _flags, byteSize, const_cast<void*>(host_ptr), &error);
 
     if (error != CL_SUCCESS)
-        std::cout << "Unable to create buffer: " << error << std::endl;
+        std::cout << "Tensor::openCL() -> Unable to create buffer: " << error << std::endl;
 }
-
-//void Tensor::openCLAs(cl_mem _buffer)
-//{
-//    std::cout << "Warning: copy of gpu tensor is experimental" << std::endl;
-//
-//    cl_context context; cl_mem_flags flags;
-//    clGetMemObjectInfo(_buffer, CL_MEM_CONTEXT, sizeof(cl_context), &context, nullptr);
-//    clGetMemObjectInfo(_buffer, CL_MEM_FLAGS, sizeof(cl_mem_flags), &flags, nullptr);
-//
-//    openCL(context, flags);
-//}
 
 void Tensor::releaseCL()
 {
@@ -212,6 +196,17 @@ void Tensor::randomize(value_type _min, value_type _max)
 
     for (unsigned i(0) ; i < values.size() ; i++)
         values[i] = Random::nextFloat(_min, _max);
+}
+
+bool Tensor::isnan() const
+{
+    for (unsigned i(0) ; i < nElements() ; i++)
+    {
+        if (std::isnan(operator[](i)))
+            return true;
+    }
+
+    return false;
 }
 
 Tensor Tensor::getTranspose() const
@@ -382,6 +377,34 @@ coords_t Tensor::argmax() const
     }
 
     return arg;
+}
+
+bool Tensor::operator==(const Tensor& _tensor)
+{
+    if (_tensor.size() != size())
+        return false;
+
+    for (unsigned i(0) ; i < nElements() ; i++)
+    {
+        if (operator[](i) != _tensor[i])
+            return false;
+    }
+
+    return true;
+}
+
+bool Tensor::operator!=(const Tensor& _tensor)
+{
+    if (_tensor.size() != size())
+        return true;
+
+    for (unsigned i(0) ; i < nElements() ; i++)
+    {
+        if (operator[](i) != _tensor[i])
+            return true;
+    }
+
+    return false;
 }
 
 Tensor::value_type& Tensor::operator[](size_t  _index)
@@ -741,6 +764,8 @@ std::ostream& operator<<(std::ostream& os, const Tensor& t)
             os << "]" << "\n";
         }
     }
+    else
+        os << "Too many dimensions\n";
 
     return os;
 }

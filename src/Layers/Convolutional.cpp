@@ -148,7 +148,6 @@ void Convolutional::updateInputGrad(cl::CommandQueue& _commandQueue, const Tenso
     }
 }
 
-// TODO: finish
 void Convolutional::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
     // weightsGrad

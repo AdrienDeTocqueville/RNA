@@ -60,13 +60,12 @@ void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
     inputGrad.resizeAs(_input);
     inputGrad.fill(0.0);
 
-
     for (unsigned c(0) ; c < indices.size(0) ; c++)
     for (unsigned i(0) ; i < indices.size(1) ; i++)
     {
         for (unsigned j(0) ; j < indices.size(2) ; j++)
         {
-            coords_t coord = {c, i, j};
+            coords_t coord = {c, 2*i, 2*j};
             if (indices(c, i, j) == 1)
                 coord[2]++;
             else if (indices(c, i, j) == 2)

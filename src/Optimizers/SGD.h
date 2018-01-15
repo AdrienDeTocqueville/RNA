@@ -8,7 +8,7 @@ namespace rna
 class SGD: public Optimizer
 {
     public:
-        SGD(Tensor::value_type _learningRate, Tensor::value_type _inertia):
+        SGD(Tensor::value_type _learningRate, Tensor::value_type _inertia = 0.0f):
             learningRate(_learningRate), inertia(_inertia)
         { }
 
@@ -23,7 +23,7 @@ class SGD: public Optimizer
 
         void updateParams(cl::CommandQueue& _commandQueue, std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
         {
-            for (size_t i(0); i < paramsDelta.size(); i++)
+            for (size_t i(0); i < _params.size(); i++)
             {
                 updateKernel.setArg(0, *_params[i]);
                 updateKernel.setArg(1, *_paramsGrad[i]);

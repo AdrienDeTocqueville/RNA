@@ -8,7 +8,7 @@ namespace rna
 class RMSProp: public Optimizer
 {
     public:
-        RMSProp(Tensor::value_type _learningRate, Tensor::value_type _rho = 0.9, Tensor::value_type _learningRateDecay = 0.0, Tensor::value_type _delta = 10e-6):
+        RMSProp(Tensor::value_type _learningRate, Tensor::value_type _rho = 0.9, Tensor::value_type _learningRateDecay = 0.0, Tensor::value_type _delta = 0.0001):
             learningRate(_learningRate), learningRateDecay(_learningRateDecay),
             rho(_rho), delta(_delta),
             iteration(0)
@@ -28,7 +28,7 @@ class RMSProp: public Optimizer
 //            learningRate *= (1.0 / (1.0 + learningRateDecay * iteration++));
 //            updateKernel.setArg(3, learningRate);
 
-            for (size_t i(0); i < r.size(); i++)
+            for (size_t i(0); i < _params.size(); i++)
             {
                 updateKernel.setArg(0, *_params[i]);
                 updateKernel.setArg(1, *_paramsGrad[i]);

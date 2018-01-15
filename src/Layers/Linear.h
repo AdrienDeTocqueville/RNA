@@ -34,7 +34,7 @@ class Linear: public Layer
         Tensor weights, weightsGrad;
         Tensor bias, biasGrad;
 
-        cl::Kernel paramsGradKernel;
+        cl::Kernel weightsGradKernel, biasGradKernel;
 };
 
 }

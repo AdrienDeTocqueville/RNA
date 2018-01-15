@@ -22,6 +22,8 @@ class Network
         void addLayer(Layer* _layer); // Warning: don't send the same pointer twice
         Layer* getLayer(size_t _index); // temp
 
+        void clear();
+
 //        no matching function for call to 'rna::Network::add(<brace-enclosed initializer list>)'|
 //        template<typename T, typename... Args>
 //        void add(Args&&... args)

@@ -87,7 +87,7 @@ void Supervised::train(const DataSet& _dataSet, unsigned _maxEpochs, unsigned _e
     }
 
     unsigned epoch = 0;
-    Tensor::value_type error = 0.0;
+    Tensor::value_type lossVal = 0.0;
     cl::CommandQueue commandQueue;
 
     commandQueue.create(context, true);
@@ -102,11 +102,6 @@ void Supervised::train(const DataSet& _dataSet, unsigned _maxEpochs, unsigned _e
         Tensor inputBatch, outputBatch;
         randomMinibatch(_dataSet, inputBatch, outputBatch, _minibatchSize);
 
-//        // Temporary solution
-//        // Problem: CL buffer would not updated on device
-//        inputBatch.releaseCL();
-//        outputBatch.releaseCL();
-
         const Tensor& output = network->feedForwardCL(commandQueue, inputBatch);
         const Tensor& gradient = loss->getGradientCL(commandQueue, output, outputBatch);
 
@@ -117,17 +112,17 @@ void Supervised::train(const DataSet& _dataSet, unsigned _maxEpochs, unsigned _e
         commandQueue.join();
 
         output.readBuffer(commandQueue, CL_TRUE);
-        error += loss->getLoss(output, outputBatch);
+        lossVal += loss->getLoss(output, outputBatch);
 
         ++epoch;
         if (epoch%_epochsBetweenReports == 0)
         {
             std::cout << "At epoch " << epoch << ":" << std::endl;
-            std::cout << "Error = " << error/(_epochsBetweenReports*_minibatchSize) << std::endl;
+            std::cout << "Loss = " << lossVal/(_epochsBetweenReports*_minibatchSize) << std::endl;
 
             std::cout << std::endl;
 
-            error = 0.0;
+            lossVal = 0.0;
         }
     }
     while (epoch != _maxEpochs);
@@ -170,42 +165,19 @@ void Supervised::earlyStopping(const DataSet& _training, const DataSet& _testing
 
     while (j++ < _patience)
     {
-        for (int n(0); n < _steps; ++n)
+        for (unsigned n(0); n < _steps; ++n)
         {
-            Example& batch = training[(i+n)%training.size()];
+            Example& batch = training[(i++)%training.size()];
 
             const Tensor& output   = network->feedForwardCL(commandQueue, batch.input);
             const Tensor& gradient = loss->getGradientCL(commandQueue, output, batch.output);
 
             network->backpropCL(commandQueue, batch.input, gradient);
-            commandQueue.join();
-
             optimizer->updateParams(commandQueue, params, paramsGrad);
+
             commandQueue.join();
         }
 
-        i += _steps;
-
-//        unsigned error = 0;
-//        for (unsigned k(0) ; k < testing.size() ; ++k)
-//        {
-//            Example& batch = testing[k];
-//
-//            const Tensor& output = network->feedForwardCL(commandQueue, batch.input);
-//            output.readBuffer(commandQueue, CL_TRUE);
-//
-//            for (unsigned b(0) ; b < _minibatchSize ; b++)
-//            {
-//                for (unsigned l(0) ; l < output.size(1) ; l++)
-//                {
-//                    if (l != batch.output(b, 0) && output(b, l) >= output(b, batch.output(b, 0)))
-//                    {
-//                        error++;
-//                        break;
-//                    }
-//                }
-//            }
-//        }
 
         unsigned error = _validate(*network, testing);
         if (error < bestError)
@@ -226,7 +198,7 @@ void Supervised::earlyStopping(const DataSet& _training, const DataSet& _testing
 
     auto time = GetTickCount()-debut;
     std::cout << "Temps: " << (time>1000?time/1000:time) << (time>1000?" s":" ms") << std::endl;
-    std::cout << "Best error: " << bestError << std::endl;
+    std::cout << "Best error: " << bestError << " (" << bestError*100.0/_testing.size() << "%)" << std::endl;
 
     // Reload best params
     for (unsigned k(0) ; k < params.size() ; k++)

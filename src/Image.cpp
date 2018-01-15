@@ -181,14 +181,14 @@ void LoadMNISTImages(rna::DataSet& _data, std::string _file)
         {
             example.input.resize({1, rows, columns});
 
-            for (unsigned i(0) ; i < rows ; i++)
+            for (unsigned i(0) ; i < columns ; i++)
             {
-                for (unsigned j(0) ; j < columns ; j++)
+                for (unsigned j(0) ; j < rows ; j++)
                 {
                     unsigned char temp = 0;
                     file.read((char*)&temp, sizeof(temp));
 
-                    example.input(0, j, i) = (temp/255.0)*2.0 - 1.0;
+                    example.input(0, j, i) = (((int)temp)/255.0)*2.0 - 1.0;
                 }
             }
         }
