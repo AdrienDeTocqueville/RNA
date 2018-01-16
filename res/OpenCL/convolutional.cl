@@ -61,12 +61,14 @@ __kernel void backpropConvolutional(__global float* _inputGrad, __global float* 
             unsigned j = ty-mv +v;
 
             if (i < outputWidth && j < outputHeight)
-            for (int c = 0; c < _outputChannels; ++c)
             {
-                float weight = _kernel[c*get_global_size(0)*_kernelWidth*_kernelHeight + tc*_kernelWidth*_kernelHeight + u*_kernelHeight + v];
-                float outputGrad = _outputGrad[outputBatchIndex + c*outputWidth*outputHeight + i*outputHeight + j];
+                for (int c = 0; c < _outputChannels; ++c)
+                {
+                    float weight = _kernel[c*get_global_size(0)*_kernelWidth*_kernelHeight + tc*_kernelWidth*_kernelHeight + u*_kernelHeight + v];
+                    float outputGrad = _outputGrad[outputBatchIndex + c*outputWidth*outputHeight + i*outputHeight + j];
 
-                value += weight * outputGrad;
+                    value += weight * outputGrad;
+                }
             }
         }
     }
@@ -80,8 +82,8 @@ __kernel void weightsGradConvolutional(__global float* _weightsGrad, __global fl
     const int ti = get_global_id(1); // kernel width
     const int tj = get_global_id(2); // kernel height
 
-    unsigned inputWidth = _outputWidth+get_global_id(1)-1;
-    unsigned inputHeight = _outputHeight+get_global_id(2)-1;
+    unsigned inputWidth = _outputWidth+get_global_size(1)-1;
+    unsigned inputHeight = _outputHeight+get_global_size(2)-1;
 
     unsigned shiftu = get_global_size(1)-1-ti;
     unsigned shiftv = get_global_size(2)-1-tj;
@@ -90,7 +92,7 @@ __kernel void weightsGradConvolutional(__global float* _weightsGrad, __global fl
     int chanInIndex = tc * get_global_size(1)*get_global_size(2);
 
     int outputGradBatchStride = _outputChannels*_outputWidth*_outputHeight;
-    int inputBatchStride = _outputChannels*inputWidth*inputHeight;
+    int inputBatchStride = get_global_size(0)*inputWidth*inputHeight;
 
     int outputGradChannelIndex = _outputChannel * _outputWidth*_outputHeight;
 
@@ -122,6 +124,9 @@ __kernel void biasGradConvolutional(__global float* _biasGrad, __global float* _
     int biasIndex = tc * get_global_size(1)*get_global_size(2) + tx * get_global_size(2) + ty;
     int batchStride = get_global_size(0)*get_global_size(1)*get_global_size(2);
 
+    float value = 0.0f;
     for (int batch = 0; batch < _numBatches; batch++)
-        _biasGrad[biasIndex] += _outputGrad[batch * batchStride + biasIndex];
+        value += _outputGrad[batch * batchStride + biasIndex];
+
+    _biasGrad[biasIndex] += value;
 }

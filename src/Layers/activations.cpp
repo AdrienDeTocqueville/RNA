@@ -34,7 +34,7 @@ void Activation::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _i
     output.resizeAs(_inputBatch);
     output.openCL(_commandQueue.getContext());
 
-    cl_int inputWidth = _inputBatch.nElements() / _inputBatch.size(0); // TODO: use strides
+    cl_int inputWidth = _inputBatch.getStride(0);
 
     forwardKernel.setArg(0, output);
     forwardKernel.setArg(1,_inputBatch);
@@ -56,7 +56,7 @@ void Activation::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
 
-    cl_int inputWidth = _inputBatch.nElements() / _inputBatch.size(0); // TODO: use strides
+    cl_int inputWidth = _inputBatch.getStride(0);
 
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_inputBatch);

@@ -48,5 +48,5 @@ __kernel void backpropELU(__global float* _inputGrad, __global float* _input, __
     const int index = get_global_id(0)*_inputWidth;
 
     for (int k = 0; k < _inputWidth; k++)
-        _inputGrad[index + k] = (_input[index + k] < 0.0f? _output[index + k] + _alpha: 1.0f) * _outputGrad[index + k];
+        _inputGrad[index + k] = (_output[index + k] < 0.0f? _output[index + k] + _alpha: 1.0f) * _outputGrad[index + k];
 }

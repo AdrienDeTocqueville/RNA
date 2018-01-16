@@ -3,13 +3,10 @@
 namespace rna
 {
 
-// TODO: Finish this class
-
 void NLL::openCL(cl::Context& _context)
 {
     auto& p = _context.getProgram("res/OpenCL/losses.cl");
 
-//    lossKernel.create(p, "lossNLL");
     gradientKernel.create(p, "gradientNLL");
 }
 

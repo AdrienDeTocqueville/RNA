@@ -1,7 +1,21 @@
 #include "MaxPooling.h"
 
+#include <cfloat>
+#include <fstream>
+
 namespace rna
 {
+
+MaxPooling::MaxPooling(size_t _poolWidth, size_t _poolHeight):
+    Layer("MaxPooling"),
+    poolWidth(_poolWidth), poolHeight(_poolHeight)
+{}
+
+MaxPooling::MaxPooling(std::ifstream& _file):
+    Layer("MaxPooling")
+{
+    _file >> poolWidth >> poolHeight;
+}
 
 void MaxPooling::openCL(cl::Context& _context)
 {
@@ -9,6 +23,9 @@ void MaxPooling::openCL(cl::Context& _context)
 
     forwardKernel.create(p, "feedForwardMaxPooling");
     backwardKernel.create(p, "backpropMaxPooling");
+
+    forwardKernel.setArg(3, poolWidth);
+    forwardKernel.setArg(4, poolHeight);
 }
 
 void MaxPooling::feedForwardCPU(const Tensor& _input)
@@ -16,22 +33,30 @@ void MaxPooling::feedForwardCPU(const Tensor& _input)
     output.resize( {_input.size(0), _input.size(1) / 2, _input.size(2) / 2} );
     indices.resizeAs(output);
 
-    Tensor pool{4};
-
     for (unsigned c(0) ; c < output.size(0) ; c++)
     for (unsigned i(0) ; i < output.size(1) ; i++)
     {
         for (unsigned j(0) ; j < output.size(2) ; j++)
         {
-            pool(0) = _input(c, 2 * i, 2 * j);
-            pool(1) = _input(c, 2 * i, 2 * j + 1);
-            pool(2) = _input(c, 2 * i + 1, 2 * j);
-            pool(3) = _input(c, 2 * i + 1, 2 * j + 1);
+            float maxInput = FLT_MIN;
+            int maxIndex = -1;
 
-            size_t am = pool.argmax()[0];
+            for (int u = 0 ; u < poolWidth ; ++u)
+            {
+                for (int v = 0 ; v < poolHeight ; ++v)
+                {
+                    int inputIndex = _input.getIndex({c, 2*i + u, 2*j + v});
 
-            indices(c, i, j) = am;
-            output(c, i, j) = pool[am];
+                    if (_input[inputIndex] > maxInput)
+                    {
+                        maxInput = _input[inputIndex];
+                        maxIndex = inputIndex;
+                    }
+                }
+            }
+
+            output(c, i, j) = maxInput;
+            indices(c, i, j) = maxIndex;
         }
     }
 }
@@ -50,7 +75,7 @@ void MaxPooling::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _i
 
     for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
     {
-        forwardKernel.setArg(3, i);
+        forwardKernel.setArg(5, i);
         forwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
     }
 }
@@ -65,18 +90,7 @@ void MaxPooling::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
     {
         for (unsigned j(0) ; j < indices.size(2) ; j++)
         {
-            coords_t coord = {c, 2*i, 2*j};
-            if (indices(c, i, j) == 1)
-                coord[2]++;
-            else if (indices(c, i, j) == 2)
-                coord[1]++;
-            else if (indices(c, i, j) == 3)
-            {
-                coord[1]++;
-                coord[2]++;
-            }
-
-            inputGrad(coord) = _outputGrad(c, i, j);
+            inputGrad[indices(c, i, j)] = _outputGrad(c, i, j);
         }
     }
 }
@@ -92,12 +106,16 @@ void MaxPooling::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_outputGradBatch);
     backwardKernel.setArg(2, indices);
+    backwardKernel.setArg(3, _inputBatch.size(0));
 
-    for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
-    {
-        backwardKernel.setArg(3, i);
-        backwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
-    }
+    backwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
+}
+
+void MaxPooling::saveToFile(std::ofstream& _file) const
+{
+    Layer::saveToFile(_file);
+
+    _file << poolWidth  << "  " << poolHeight << std::endl;
 }
 
 }

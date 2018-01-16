@@ -1,4 +1,3 @@
-// GWS: minibatch, inputWidth
 __kernel void gradientMSE(__global float* _output, __global float* _estimation, __global float* _target)
 {
     const int index = get_global_id(0)*get_global_size(1) + get_global_id(1);

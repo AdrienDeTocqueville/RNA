@@ -36,7 +36,7 @@ class Tensor
         Tensor& operator=(Tensor _tensor);
 
 
-        void openCL(const cl::Context& _context, cl_mem_flags _flags = CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR) const;
+        void openCL(const cl::Context& _context, cl_mem_flags _flags = CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR) const; // CL_MEM_USE_HOST_PTR / CL_MEM_COPY_HOST_PTR
 
         void releaseCL();
 
@@ -55,6 +55,8 @@ class Tensor
         bool isnan() const;
 
         Tensor getTranspose() const;
+
+        size_t getStride(size_t i) const;
         size_t getIndex(const coords_t&  _indices) const;
 
         const cl_mem& getBuffer() const;

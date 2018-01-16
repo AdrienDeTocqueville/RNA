@@ -107,9 +107,6 @@ void Context::release()
 
 const Program& Context::getProgram(const std::string& _path)
 {
-//    auto element = programs.emplace(std::piecewise_construct, std::make_tuple(_path), std::make_tuple(*this, _path));
-//
-//    return &element.first->second;
     Program& program = programs[_path];
     program.create(*this, _path);
 
@@ -134,10 +131,11 @@ void CommandQueue::create(const Context& _context, bool _inOrder)
     cl_int error;
 
     // About out of order mode: https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html
-    cl_command_queue_properties properties = _inOrder? 0: CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+    cl_command_queue_properties cqProperties = _inOrder? 0: CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+    cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, cqProperties, 0};
 
-//    id = clCreateCommandQueueWithProperties(_context(), _context.getDeviceId(), nullptr, &error);
-    id = clCreateCommandQueue(_context(), _context.getDeviceId(), properties, &error);
+    id = clCreateCommandQueueWithProperties(_context(), _context.getDeviceId(), properties, &error);
+//    id = clCreateCommandQueue(_context(), _context.getDeviceId(), cqProperties, &error);
 
     if (error != CL_SUCCESS)
         Error::add(ErrorType::UNKNOWN_ERROR, "clCreateCommandQueue() error: " + toString(error));

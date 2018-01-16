@@ -23,7 +23,7 @@ class RMSProp: public Optimizer
                 r.emplace_back(_params[i]->size(), 0.0);
         }
 
-        void updateParams(cl::CommandQueue& _commandQueue, std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
+        void updateParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
         {
 //            learningRate *= (1.0 / (1.0 + learningRateDecay * iteration++));
 //            updateKernel.setArg(3, learningRate);
@@ -34,12 +34,16 @@ class RMSProp: public Optimizer
                 updateKernel.setArg(1, *_paramsGrad[i]);
                 updateKernel.setArg(2, r[i]);
 
-                _commandQueue.enqueue(updateKernel, { r[i].nElements() });
+                commandQueue.enqueue(updateKernel, { r[i].nElements() });
             }
+
+            commandQueue.join();
         }
 
         void openCL(cl::Context& _context)
         {
+            commandQueue.create(_context, false);
+
             auto& p = _context.getProgram("res/OpenCL/rmsprop.cl");
             updateKernel.create(p, "updateParam");
 
@@ -57,6 +61,7 @@ class RMSProp: public Optimizer
 
         std::vector<Tensor> r;
 
+        cl::CommandQueue commandQueue;
         cl::Kernel updateKernel;
 };
 

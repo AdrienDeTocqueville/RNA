@@ -225,11 +225,21 @@ Tensor Tensor::getTranspose() const
     return transpose;
 }
 
+size_t Tensor::getStride(size_t i) const
+{
+    #ifdef TENSOR_SAFE
+        if (i >= strides.size())
+            std::cout << "Tensor::getStride() -> Out of bounds" << std::endl;
+    #endif
+
+    return strides[i];
+}
+
 size_t Tensor::getIndex(const coords_t&  _indices) const
 {
     #ifdef TENSOR_SAFE
         if (_indices.size() != dimensions.size())
-            std::cout << "Tensor::operator() -> number of dimensions is invalid" << std::endl;
+            std::cout << "Tensor::getIndex() -> number of dimensions is invalid" << std::endl;
 
         for (unsigned i(0) ; i < dimensions.size() ; i++)
         {

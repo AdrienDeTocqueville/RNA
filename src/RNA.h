@@ -17,5 +17,3 @@
 
 #include "Optimizers/SGD.h"
 #include "Optimizers/RMSProp.h"
-
-// TODO: support rectifiers ?

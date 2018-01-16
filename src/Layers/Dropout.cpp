@@ -7,6 +7,11 @@
 namespace rna
 {
 
+Dropout::Dropout(Tensor::value_type _rate):
+    Layer("Dropout"),
+    rate(_rate)
+{}
+
 Dropout::Dropout(std::ifstream& _file):
     Layer("Dropout")
 {
@@ -41,7 +46,7 @@ void Dropout::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
     rands.randomize(0.0f, 1.0f);
     rands.writeBuffer(_commandQueue);
 
-    cl_int inputWidth = _inputBatch.nElements() / _inputBatch.size(0); // TODO: use strides
+    cl_int inputWidth = _inputBatch.getStride(0);
 
     forwardKernel.setArg(0, output);
     forwardKernel.setArg(1,_inputBatch);
@@ -66,7 +71,7 @@ void Dropout::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBa
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
 
-    cl_int inputWidth = _inputBatch.nElements() / _inputBatch.size(0); // TODO: use strides
+    cl_int inputWidth = _inputBatch.getStride(0);
 
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1, output);

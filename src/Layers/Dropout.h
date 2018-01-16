@@ -8,7 +8,7 @@ namespace rna
 class Dropout: public Layer
 {
     public:
-        Dropout(Tensor::value_type _rate = 0.5): Layer("Dropout"), rate(_rate) {}
+        Dropout(Tensor::value_type _rate = 0.5);
         Dropout(std::ifstream& _file);
 
         virtual void feedForwardCPU(const Tensor& _input);

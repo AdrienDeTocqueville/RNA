@@ -13,7 +13,6 @@ Loss::~Loss()
 
 void Loss::releaseCL()
 {
-	lossKernel.release();
 	gradientKernel.release();
 }
 

@@ -23,7 +23,7 @@ class Loss
     protected:
         Tensor gradient;
 
-        cl::Kernel lossKernel, gradientKernel;
+        cl::Kernel gradientKernel;
 };
 
 }

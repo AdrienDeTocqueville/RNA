@@ -37,6 +37,7 @@ void Reshape::setBatchMode(bool _useMinibatch)
 
 void Reshape::openCL(cl::Context& _context)
 {
+    setBatchMode(true);
 }
 
 void Reshape::feedForwardCPU(const Tensor& _input)
@@ -50,11 +51,13 @@ void Reshape::feedForwardCPU(const Tensor& _input)
 
 void Reshape::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-    _commandQueue.join(); // Wait for previous layers to finish
+    outputSize[0] = _inputBatch.size(0);
 
-    feedForwardCPU(_inputBatch); // TODO: use clEnqueueCopyBuffer
-
+    output.resize(outputSize);
     output.openCL(_commandQueue.getContext());
+
+    clEnqueueCopyBuffer(_commandQueue(), _inputBatch.getBuffer(), output.getBuffer(), 0, 0,
+                        _inputBatch.nElements() * sizeof(Tensor::value_type), 0, nullptr, nullptr);
 }
 
 void Reshape::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
@@ -65,11 +68,11 @@ void Reshape::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
 
 void Reshape::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    _commandQueue.join(); // Wait for previous layers to finish
-
-    backpropCPU(_inputBatch, _outputGradBatch); // TODO: use clEnqueueCopyBuffer
-
+    inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
+
+    clEnqueueCopyBuffer(_commandQueue(), _outputGradBatch.getBuffer(), inputGrad.getBuffer(), 0, 0,
+                        _outputGradBatch.nElements() * sizeof(Tensor::value_type), 0, nullptr, nullptr);
 }
 
 
