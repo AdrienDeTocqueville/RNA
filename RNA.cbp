@@ -20,11 +20,6 @@
 					<Add option="-DDEBUG" />
 					<Add option="-DTENSOR_SAFE" />
 				</Compiler>
-				<Linker>
-					<Add library="sfml-graphics-d" />
-					<Add library="sfml-window-d" />
-					<Add library="sfml-system-d" />
-				</Linker>
 			</Target>
 			<Target title="Release">
 				<Option output="bin/Release/RNA" prefix_auto="1" extension_auto="1" />
@@ -35,70 +30,63 @@
 					<Add option="-O2" />
 					<Add option="-std=c++11" />
 				</Compiler>
+			</Target>
+			<Target title="OpenCL">
+				<Option output="lib/RNA" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="bin/OpenCL" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-DUSE_OPENCL" />
+				</Compiler>
 				<Linker>
-					<Add library="sfml-graphics" />
-					<Add library="sfml-window" />
-					<Add library="sfml-system" />
+					<Add library="C:/Windows/System32/OpenCL.dll" />
 				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-fexceptions" />
 			<Add directory="D:/Adrien/PROG/Libs/SFML-2.4.2/include" />
+			<Add directory="dependencies/Utility/include" />
+			<Add directory="include" />
 		</Compiler>
 		<Linker>
-			<Add library="C:/Windows/System32/OpenCL.dll" />
+			<Add library="dependencies/Utility/lib/libUtility.a" />
 			<Add directory="D:/Adrien/PROG/Libs/SFML-2.4.2/lib" />
 		</Linker>
-		<Unit filename="res/OpenCL/activations.cl" />
-		<Unit filename="res/OpenCL/convolutional.cl" />
-		<Unit filename="res/OpenCL/dropout.cl" />
-		<Unit filename="res/OpenCL/linear.cl" />
-		<Unit filename="res/OpenCL/logSoftMax.cl" />
-		<Unit filename="res/OpenCL/losses.cl" />
-		<Unit filename="res/OpenCL/maxPooling.cl" />
-		<Unit filename="res/OpenCL/rmsprop.cl" />
-		<Unit filename="res/OpenCL/sgd.cl" />
-		<Unit filename="src/Layers/Convolutional.cpp" />
-		<Unit filename="src/Layers/Convolutional.h" />
-		<Unit filename="src/Layers/Dropout.cpp" />
-		<Unit filename="src/Layers/Dropout.h" />
-		<Unit filename="src/Layers/Layer.cpp" />
-		<Unit filename="src/Layers/Layer.h" />
-		<Unit filename="src/Layers/Linear.cpp" />
-		<Unit filename="src/Layers/Linear.h" />
-		<Unit filename="src/Layers/LogSoftMax.cpp" />
-		<Unit filename="src/Layers/LogSoftMax.h" />
-		<Unit filename="src/Layers/MaxPooling.cpp" />
-		<Unit filename="src/Layers/MaxPooling.h" />
-		<Unit filename="src/Layers/Reshape.cpp" />
-		<Unit filename="src/Layers/Reshape.h" />
-		<Unit filename="src/Layers/activations.cpp" />
-		<Unit filename="src/Layers/activations.h" />
-		<Unit filename="src/Losses/Loss.cpp" />
-		<Unit filename="src/Losses/Loss.h" />
-		<Unit filename="src/Losses/MSE.cpp" />
-		<Unit filename="src/Losses/MSE.h" />
-		<Unit filename="src/Losses/NLL.cpp" />
-		<Unit filename="src/Losses/NLL.h" />
-		<Unit filename="src/Network.cpp" />
-		<Unit filename="src/Network.h" />
-		<Unit filename="src/Optimizers/Optimizer.h" />
-		<Unit filename="src/Optimizers/RMSProp.h" />
-		<Unit filename="src/Optimizers/SGD.h" />
-		<Unit filename="src/RNA.h" />
-		<Unit filename="src/Trainers/Supervised.cpp" />
-		<Unit filename="src/Trainers/Supervised.h" />
-		<Unit filename="src/Utility/Error.cpp" />
-		<Unit filename="src/Utility/Error.h" />
-		<Unit filename="src/Utility/Random.cpp" />
-		<Unit filename="src/Utility/Random.h" />
-		<Unit filename="src/Utility/Tensor.cpp" />
-		<Unit filename="src/Utility/Tensor.h" />
-		<Unit filename="src/Utility/util.cpp" />
-		<Unit filename="src/Utility/util.h" />
-		<Unit filename="src/clWrapper.cpp" />
-		<Unit filename="src/clWrapper.h" />
+		<Unit filename="include/RNA/Layers/Convolutional.h" />
+		<Unit filename="include/RNA/Layers/Dropout.h" />
+		<Unit filename="include/RNA/Layers/Layer.h" />
+		<Unit filename="include/RNA/Layers/Linear.h" />
+		<Unit filename="include/RNA/Layers/LogSoftMax.h" />
+		<Unit filename="include/RNA/Layers/MaxPooling.h" />
+		<Unit filename="include/RNA/Layers/Reshape.h" />
+		<Unit filename="include/RNA/Layers/activations.h" />
+		<Unit filename="include/RNA/Losses/Loss.h" />
+		<Unit filename="include/RNA/Losses/MSE.h" />
+		<Unit filename="include/RNA/Losses/NLL.h" />
+		<Unit filename="include/RNA/Network.h" />
+		<Unit filename="include/RNA/Optimizers/Optimizer.h" />
+		<Unit filename="include/RNA/Optimizers/RMSProp.h" />
+		<Unit filename="include/RNA/Optimizers/SGD.h" />
+		<Unit filename="include/RNA/RNA.h" />
+		<Unit filename="include/RNA/Trainers/QLearning.h" />
+		<Unit filename="include/RNA/Trainers/Supervised.h" />
+		<Unit filename="src/RNA/Layers/Convolutional.cpp" />
+		<Unit filename="src/RNA/Layers/Dropout.cpp" />
+		<Unit filename="src/RNA/Layers/Layer.cpp" />
+		<Unit filename="src/RNA/Layers/Linear.cpp" />
+		<Unit filename="src/RNA/Layers/LogSoftMax.cpp" />
+		<Unit filename="src/RNA/Layers/MaxPooling.cpp" />
+		<Unit filename="src/RNA/Layers/Reshape.cpp" />
+		<Unit filename="src/RNA/Layers/activations.cpp" />
+		<Unit filename="src/RNA/Losses/Loss.cpp" />
+		<Unit filename="src/RNA/Losses/MSE.cpp" />
+		<Unit filename="src/RNA/Losses/NLL.cpp" />
+		<Unit filename="src/RNA/Network.cpp" />
+		<Unit filename="src/RNA/Trainers/QLearning.cpp" />
+		<Unit filename="src/RNA/Trainers/Supervised.cpp" />
 		<Extensions>
 			<code_completion />
 			<envvars />
