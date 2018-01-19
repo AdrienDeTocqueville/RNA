@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Network.h"
-#include "Supervised.h"
 
 #include "Losses/MSE.h"
 #include "Losses/NLL.h"
@@ -17,3 +16,5 @@
 
 #include "Optimizers/SGD.h"
 #include "Optimizers/RMSProp.h"
+
+#include "Trainers/Supervised.h"

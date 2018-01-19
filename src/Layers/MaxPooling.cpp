@@ -19,7 +19,7 @@ MaxPooling::MaxPooling(std::ifstream& _file):
 
 void MaxPooling::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/maxPooling.cl");
+    auto& p = _context.getProgram("Kernels/maxPooling.cl");
 
     forwardKernel.create(p, "feedForwardMaxPooling");
     backwardKernel.create(p, "backpropMaxPooling");
@@ -30,7 +30,7 @@ void MaxPooling::openCL(cl::Context& _context)
 
 void MaxPooling::feedForwardCPU(const Tensor& _input)
 {
-    output.resize( {_input.size(0), _input.size(1) / 2, _input.size(2) / 2} );
+    output.resize( {_input.size(0), _input.size(1) / poolWidth, _input.size(2) / poolHeight} );
     indices.resizeAs(output);
 
     for (unsigned c(0) ; c < output.size(0) ; c++)
@@ -45,7 +45,7 @@ void MaxPooling::feedForwardCPU(const Tensor& _input)
             {
                 for (int v = 0 ; v < poolHeight ; ++v)
                 {
-                    int inputIndex = _input.getIndex({c, 2*i + u, 2*j + v});
+                    int inputIndex = _input.getIndex({c, poolWidth*i + u, poolHeight*j + v});
 
                     if (_input[inputIndex] > maxInput)
                     {
@@ -63,7 +63,7 @@ void MaxPooling::feedForwardCPU(const Tensor& _input)
 
 void MaxPooling::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-    output.resize( {_inputBatch.size(0), _inputBatch.size(1), _inputBatch.size(2) / 2, _inputBatch.size(3) / 2} );
+    output.resize( {_inputBatch.size(0), _inputBatch.size(1), _inputBatch.size(2) / poolWidth, _inputBatch.size(3) / poolHeight} );
     output.openCL(_commandQueue.getContext());
 
     indices.resizeAs(output);
@@ -76,7 +76,7 @@ void MaxPooling::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _i
     for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
     {
         forwardKernel.setArg(5, i);
-        forwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
+        _commandQueue.enqueueKernel(forwardKernel, {indices.size(1), indices.size(2), indices.size(3)});
     }
 }
 
@@ -108,7 +108,9 @@ void MaxPooling::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
     backwardKernel.setArg(2, indices);
     backwardKernel.setArg(3, _inputBatch.size(0));
 
-    backwardKernel.enqueue(_commandQueue, {indices.size(1), indices.size(2), indices.size(3)});
+    cl_event event;
+    _commandQueue.enqueueKernel(backwardKernel, {indices.size(1), indices.size(2), indices.size(3)}, &event);
+    _commandQueue.enqueueBarrier({event});
 }
 
 void MaxPooling::saveToFile(std::ofstream& _file) const

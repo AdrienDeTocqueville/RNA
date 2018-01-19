@@ -217,7 +217,7 @@ bool Network::loadFromFile(const std::string& _file)
             layer = new LogSoftMax();
 
         else if ("MaxPooling" == layerType)
-            layer = new MaxPooling();
+            layer = new MaxPooling(file);
 
         else if ("Reshape" == layerType)
             layer = new Reshape(file);

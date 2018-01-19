@@ -5,7 +5,7 @@ namespace rna
 
 void NLL::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/losses.cl");
+    auto& p = _context.getProgram("Kernels/losses.cl");
 
     gradientKernel.create(p, "gradientNLL");
 }
@@ -53,7 +53,7 @@ const Tensor& NLL::getGradientCL(cl::CommandQueue& _commandQueue, const Tensor& 
     gradientKernel.setArg(1,_targetBatch);
     gradientKernel.setArg(2,_estimationBatch.size(1));
 
-    gradientKernel.enqueue(_commandQueue, { _estimationBatch.size(0) });
+    _commandQueue.enqueueKernel(gradientKernel, { _estimationBatch.size(0) });
 
     return gradient;
 }

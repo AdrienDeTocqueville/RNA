@@ -40,7 +40,7 @@ void Activation::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _i
     forwardKernel.setArg(1,_inputBatch);
     forwardKernel.setArg(2, inputWidth);
 
-    forwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
+    _commandQueue.enqueueKernel(forwardKernel, { _inputBatch.size(0) });
 }
 
 void Activation::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
@@ -64,14 +64,16 @@ void Activation::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
     backwardKernel.setArg(3,_outputGradBatch);
     backwardKernel.setArg(4, sizeof(cl_int), &inputWidth);
 
-    backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
+    cl_event event;
+    _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)}, &event);
+    _commandQueue.enqueueBarrier({event});
 }
 
 
 /// Tanh
 void Tanh::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/activations.cl");
+    auto& p = _context.getProgram("Kernels/activations.cl");
 
     forwardKernel.create(p, "feedForwardTanh");
     backwardKernel.create(p, "backpropTanh");
@@ -93,7 +95,7 @@ Tensor::value_type Tanh::df(Tensor::value_type _value)
 /// ReLU
 void ReLU::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/activations.cl");
+    auto& p = _context.getProgram("Kernels/activations.cl");
 
     forwardKernel.create(p, "feedForwardReLU");
     backwardKernel.create(p, "backpropReLU");
@@ -119,7 +121,7 @@ ELU::ELU(std::ifstream& _file):
 
 void ELU::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/activations.cl");
+    auto& p = _context.getProgram("Kernels/activations.cl");
 
     forwardKernel.create(p, "feedForwardELU");
     backwardKernel.create(p, "backpropELU");

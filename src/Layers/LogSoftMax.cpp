@@ -7,7 +7,7 @@ namespace rna
 
 void LogSoftMax::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/logSoftMax.cl");
+    auto& p = _context.getProgram("Kernels/logSoftMax.cl");
 
     forwardKernel.create(p, "feedForwardLogSoftMax");
     backwardKernel.create(p, "backpropLogSoftMax");
@@ -60,7 +60,7 @@ void LogSoftMax::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _i
     forwardKernel.setArg(1,_inputBatch);
     forwardKernel.setArg(2,_inputBatch.size(1));
 
-    forwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
+    _commandQueue.enqueueKernel(forwardKernel, { _inputBatch.size(0) });
 }
 
 void LogSoftMax::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
@@ -101,7 +101,9 @@ void LogSoftMax::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
     backwardKernel.setArg(3, output);
     backwardKernel.setArg(4,_outputGradBatch.size(1));
 
-    backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
+    cl_event event;
+    _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)}, &event);
+    _commandQueue.enqueueBarrier({event});
 }
 
 }

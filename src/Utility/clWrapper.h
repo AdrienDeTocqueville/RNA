@@ -59,27 +59,6 @@ class Context: public Wrapper<cl_context>
         std::map<std::string, Program> programs;
 };
 
-class Kernel;
-class CommandQueue: public Wrapper<cl_command_queue>
-{
-    public:
-        CommandQueue() {}
-        CommandQueue(const Context& _context, bool _inOrder = true) { create(_context, _inOrder); }
-        CommandQueue(const CommandQueue& c) = delete;
-
-        void create(const Context& _context, bool _inOrder = true);
-        void release();
-
-        void join() const;
-        const Context& getContext() const;
-
-        void enqueue(Kernel& _kernel, const coords_t& _globalWorkSize);
-
-    private:
-        const Context* context;
-        bool inOrder;
-};
-
 class Program: public Wrapper<cl_program>
 {
     public:
@@ -88,6 +67,11 @@ class Program: public Wrapper<cl_program>
 
         void create(const Context& _context, const std::string& _path);
         void release();
+
+        void setBaseDirectory(const std::string& _baseDirectory = "");
+
+    private:
+        static std::string baseDirectory;
 };
 
 class Kernel: public Wrapper<cl_kernel>
@@ -105,8 +89,28 @@ class Kernel: public Wrapper<cl_kernel>
         template <typename T>
         void setArg(cl_uint _index, T _value)
         { setArg(_index, sizeof(T), &_value); }
+};
 
-        void enqueue(CommandQueue& _commandQueue, const coords_t& _globalWorkSize);
+class CommandQueue: public Wrapper<cl_command_queue>
+{
+    public:
+        CommandQueue() {}
+        CommandQueue(const Context& _context, bool _inOrder = true) { create(_context, _inOrder); }
+        CommandQueue(const CommandQueue& c) = delete;
+
+        void create(const Context& _context, bool _inOrder = true);
+        void release();
+
+        void join() const;
+        const Context& getContext() const;
+
+        void enqueueKernel(Kernel& _kernel, const coords_t& _globalWorkSize, cl_event* _event = nullptr);
+        void enqueueBarrier(const std::vector<cl_event>& _events);
+        void enqueueBarrier();
+
+    private:
+        const Context* context;
+        bool inOrder;
 };
 
 }

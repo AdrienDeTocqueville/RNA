@@ -8,8 +8,8 @@ namespace rna
 Tensor::value_type Layer::WEIGHT_INIT_MIN = -0.5f;
 Tensor::value_type Layer::WEIGHT_INIT_MAX = 0.5f;
 
-Tensor::value_type Layer::BIAS_INIT_MIN = 0.0f;
-Tensor::value_type Layer::BIAS_INIT_MAX = 0.5f;
+Tensor::value_type Layer::BIAS_INIT_MIN = 0.25f;
+Tensor::value_type Layer::BIAS_INIT_MAX = 0.25f;
 
 Layer::Layer(std::string _type):
     type(_type)

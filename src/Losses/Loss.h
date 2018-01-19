@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../clWrapper.h"
+#include "../Utility/clWrapper.h"
 #include "../Utility/Tensor.h"
 
 namespace rna

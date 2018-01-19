@@ -20,7 +20,7 @@ Dropout::Dropout(std::ifstream& _file):
 
 void Dropout::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/dropout.cl");
+    auto& p = _context.getProgram("Kernels/dropout.cl");
 
     forwardKernel.create(p, "feedForwardDropout");
     backwardKernel.create(p, "backpropDropout");
@@ -54,7 +54,7 @@ void Dropout::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _inpu
     forwardKernel.setArg(3, rands);
     forwardKernel.setArg(4, rate);
 
-    _commandQueue.enqueue(forwardKernel,  { _inputBatch.size(0) });
+    _commandQueue.enqueueKernel(forwardKernel, { _inputBatch.size(0) });
 }
 
 void Dropout::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
@@ -78,7 +78,9 @@ void Dropout::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBa
     backwardKernel.setArg(2,_outputGradBatch);
     backwardKernel.setArg(3, sizeof(cl_int), &inputWidth);
 
-    backwardKernel.enqueue(_commandQueue,  { _inputBatch.size(0) });
+    cl_event event;
+    _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)}, &event);
+    _commandQueue.enqueueBarrier({event});
 }
 
 void Dropout::saveToFile(std::ofstream& _file) const

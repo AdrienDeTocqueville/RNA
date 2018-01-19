@@ -47,7 +47,7 @@ void Linear::randomize()
 
 void Linear::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/linear.cl");
+    auto& p = _context.getProgram("Kernels/linear.cl");
 
     forwardKernel.create(p, "feedForwardLinear");
     backwardKernel.create(p, "backpropLinear");
@@ -106,7 +106,7 @@ void Linear::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor& _input
     forwardKernel.setArg(0, output);
     forwardKernel.setArg(1,_inputBatch);
 
-    _commandQueue.enqueue(forwardKernel, output.size());
+    _commandQueue.enqueueKernel(forwardKernel, output.size());
 }
 
 void Linear::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
@@ -133,8 +133,9 @@ void Linear::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
 
 void Linear::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    updateInputGrad(_commandQueue, _inputBatch, _outputGradBatch);
+    // Start with paramsGrad to enqueue barrier on inputGrad
     updateParamsGrad(_commandQueue, _inputBatch, _outputGradBatch);
+    updateInputGrad(_commandQueue, _inputBatch, _outputGradBatch);
 }
 
 void Linear::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
@@ -145,7 +146,9 @@ void Linear::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inp
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_outputGradBatch);
 
-    _commandQueue.enqueue(backwardKernel, inputGrad.size());
+    cl_event event;
+    _commandQueue.enqueueKernel(backwardKernel, inputGrad.size(), &event);
+    _commandQueue.enqueueBarrier({event});
 }
 
 void Linear::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
@@ -155,13 +158,13 @@ void Linear::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _in
     weightsGradKernel.setArg(2,_inputBatch);
     weightsGradKernel.setArg(3,_outputGradBatch.size(0));
 
-    _commandQueue.enqueue(weightsGradKernel, weightsGrad.size());
+    _commandQueue.enqueueKernel(weightsGradKernel, weightsGrad.size());
 
     // biasGrad
     biasGradKernel.setArg(1,_outputGradBatch);
     biasGradKernel.setArg(2,_outputGradBatch.size(0));
 
-    _commandQueue.enqueue(biasGradKernel, biasGrad.size());
+    _commandQueue.enqueueKernel(biasGradKernel, biasGrad.size());
 }
 
 void Linear::getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)

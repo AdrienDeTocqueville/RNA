@@ -55,7 +55,7 @@ void Convolutional::randomize()
 
 void Convolutional::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/convolutional.cl");
+    auto& p = _context.getProgram("Kernels/convolutional.cl");
 
     forwardKernel.create(p, "feedForwardConvolutional");
     backwardKernel.create(p, "backpropConvolutional");
@@ -115,7 +115,7 @@ void Convolutional::feedForwardCL(cl::CommandQueue& _commandQueue, const Tensor&
     for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
     {
         forwardKernel.setArg(7, i);
-        _commandQueue.enqueue(forwardKernel, bias.size());
+        _commandQueue.enqueueKernel(forwardKernel, bias.size());
     }
 }
 
@@ -129,8 +129,9 @@ void Convolutional::backpropCPU(const Tensor& _input, const Tensor& _outputGrad)
 
 void Convolutional::backpropCL(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    updateInputGrad(_commandQueue, _inputBatch, _outputGradBatch);
+    // Start with paramsGrad to enqueue barrier on inputGrad
     updateParamsGrad(_commandQueue, _inputBatch, _outputGradBatch);
+    updateInputGrad(_commandQueue, _inputBatch, _outputGradBatch);
 }
 
 void Convolutional::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
@@ -141,11 +142,15 @@ void Convolutional::updateInputGrad(cl::CommandQueue& _commandQueue, const Tenso
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_outputGradBatch);
 
+    std::vector<cl_event> events(_inputBatch.size(0), nullptr);
+
     for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
     {
         backwardKernel.setArg(6, i);
-        _commandQueue.enqueue(backwardKernel, {inputGrad.size(1), inputGrad.size(2), inputGrad.size(3)});
+        _commandQueue.enqueueKernel(backwardKernel, {inputGrad.size(1), inputGrad.size(2), inputGrad.size(3)}, &events[i]);
     }
+
+    _commandQueue.enqueueBarrier(events);
 }
 
 void Convolutional::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
@@ -158,14 +163,14 @@ void Convolutional::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tens
     for (int i(0) ; i < (int)weights.size(0) ; i++)
     {
         weightsGradKernel.setArg(7, i);
-        _commandQueue.enqueue(weightsGradKernel, {weightsGrad.size(1), weightsGrad.size(2), weightsGrad.size(3)});
+        _commandQueue.enqueueKernel(weightsGradKernel, {weightsGrad.size(1), weightsGrad.size(2), weightsGrad.size(3)});
     }
 
     // biasGrad
     biasGradKernel.setArg(1,_outputGradBatch);
     biasGradKernel.setArg(2,_outputGradBatch.size(0));
 
-    _commandQueue.enqueue(biasGradKernel, biasGrad.size());
+    _commandQueue.enqueueKernel(biasGradKernel, biasGrad.size());
 }
 
 void Convolutional::getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)

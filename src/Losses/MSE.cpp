@@ -5,7 +5,7 @@ namespace rna
 
 void MSE::openCL(cl::Context& _context)
 {
-    auto& p = _context.getProgram("res/OpenCL/losses.cl");
+    auto& p = _context.getProgram("Kernels/losses.cl");
 
     gradientKernel.create(p, "gradientMSE");
 }
@@ -33,7 +33,7 @@ const Tensor& MSE::getGradientCL(cl::CommandQueue& _commandQueue, const Tensor& 
     gradientKernel.setArg(1,_estimationBatch);
     gradientKernel.setArg(2,_targetBatch);
 
-    gradientKernel.enqueue(_commandQueue, _estimationBatch.size());
+    _commandQueue.enqueueKernel(gradientKernel, _estimationBatch.size());
 
     return gradient;
 }

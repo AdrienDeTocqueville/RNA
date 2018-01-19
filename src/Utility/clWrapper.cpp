@@ -4,8 +4,8 @@
 #include <fstream>
 #include <iostream>
 
-#include "Utility/Error.h"
-#include "Utility/Tensor.h"
+#include "Error.h"
+#include "Tensor.h"
 
 namespace cl
 {
@@ -35,7 +35,7 @@ std::vector<cl_device_id> getDeviceIds(cl_device_type _deviceType, cl_platform_i
 
     cl_int error;
 
-    cl_uint deviceCount;
+    cl_uint deviceCount = 0;
     error = clGetDeviceIDs(_platformId, _deviceType, 0, nullptr, &deviceCount);
     if (error != CL_SUCCESS)
         Error::add(ErrorType::WARNING, "OpenCL: Failed to get devices count with error code " + toString(error));
@@ -119,68 +119,20 @@ cl_device_id Context::getDeviceId() const
 }
 
 
-/// CommandQueue
-void CommandQueue::create(const Context& _context, bool _inOrder)
-{
-    if (id)
-        return;
-
-    context = &_context;
-    inOrder = _inOrder;
-
-    cl_int error;
-
-    // About out of order mode: https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html
-    cl_command_queue_properties cqProperties = _inOrder? 0: CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
-    cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, cqProperties, 0};
-
-    id = clCreateCommandQueueWithProperties(_context(), _context.getDeviceId(), properties, &error);
-//    id = clCreateCommandQueue(_context(), _context.getDeviceId(), cqProperties, &error);
-
-    if (error != CL_SUCCESS)
-        Error::add(ErrorType::UNKNOWN_ERROR, "clCreateCommandQueue() error: " + toString(error));
-}
-
-void CommandQueue::release()
-{
-    clReleaseCommandQueue(id);
-    id = 0;
-
-    context = nullptr;
-}
-
-void CommandQueue::join() const
-{
-    clFinish(id);
-}
-
-const Context& CommandQueue::getContext() const
-{
-    return *context;
-}
-
-void CommandQueue::enqueue(Kernel& _kernel, const coords_t& _globalWorkSize)
-{
-	cl_int error = clEnqueueNDRangeKernel(id, _kernel(), _globalWorkSize.size(), nullptr, _globalWorkSize.data(), nullptr, 0, nullptr, nullptr);
-
-	if (error != CL_SUCCESS)
-    {
-        Error::add(ErrorType::USER_ERROR, "Kernel enqueue: " + toString(error));
-    }
-}
-
-
 /// Program
+std::string Program::baseDirectory = "";
+
 void Program::create(const Context& _context, const std::string& _path)
 {
     if (id)
         return;
 
     cl_int error;
+    std::string path = baseDirectory + _path;
 
 	std::ifstream in(_path);
 	if (!in)
-        Error::add(ErrorType::FILE_NOT_FOUND, _path);
+        return Error::add(ErrorType::FILE_NOT_FOUND, _path);
 
     // Read file
 	std::string src( (std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>() );
@@ -217,6 +169,14 @@ void Program::release()
 {
 	clReleaseProgram(id);
     id = 0;
+}
+
+void Program::setBaseDirectory(const std::string& _baseDirectory)
+{
+    baseDirectory = _baseDirectory;
+
+    if (baseDirectory.size() && baseDirectory.back() != '/')
+        baseDirectory.append("/");
 }
 
 
@@ -258,14 +218,69 @@ void Kernel::setArg(cl_uint _index, const Tensor& _value)
     setArg(_index, sizeof(cl_mem), &_value.getBuffer());
 }
 
-void Kernel::enqueue(CommandQueue& _commandQueue, const coords_t& _globalWorkSize)
+
+/// CommandQueue
+void CommandQueue::create(const Context& _context, bool _inOrder)
 {
-	cl_int error = clEnqueueNDRangeKernel(_commandQueue(), id, _globalWorkSize.size(), nullptr, _globalWorkSize.data(), nullptr, 0, nullptr, nullptr);
+    if (id)
+        return;
+
+    context = &_context;
+    inOrder = _inOrder;
+
+    cl_int error;
+
+    // About out of order mode: https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html
+    cl_command_queue_properties cqProperties = _inOrder? 0: CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+    cl_queue_properties properties[] = {CL_QUEUE_PROPERTIES, cqProperties, 0};
+
+    id = clCreateCommandQueueWithProperties(_context(), _context.getDeviceId(), properties, &error);
+//    id = clCreateCommandQueue(_context(), _context.getDeviceId(), cqProperties, &error);
+
+    if (error != CL_SUCCESS)
+        Error::add(ErrorType::UNKNOWN_ERROR, "clCreateCommandQueue() error: " + toString(error));
+}
+
+void CommandQueue::release()
+{
+    clReleaseCommandQueue(id);
+    id = 0;
+
+    context = nullptr;
+}
+
+void CommandQueue::join() const
+{
+    clFinish(id);
+}
+
+const Context& CommandQueue::getContext() const
+{
+    return *context;
+}
+
+void CommandQueue::enqueueKernel(Kernel& _kernel, const coords_t& _globalWorkSize, cl_event* _event)
+{
+	cl_int error = clEnqueueNDRangeKernel(id, _kernel(), _globalWorkSize.size(), nullptr, _globalWorkSize.data(), nullptr, 0, nullptr, _event);
 
 	if (error != CL_SUCCESS)
-    {
-        Error::add(ErrorType::USER_ERROR, "Kernel enqueue: " + toString(error));
-    }
+        Error::add(ErrorType::USER_ERROR, "Enqueue kernel: " + toString(error));
+}
+
+void CommandQueue::enqueueBarrier(const std::vector<cl_event>& _events)
+{
+    cl_int error = clEnqueueBarrierWithWaitList(id, _events.size(), _events.data(), nullptr);
+
+	if (error != CL_SUCCESS)
+        Error::add(ErrorType::USER_ERROR, "Enqueue barrier: " + toString(error));
+}
+
+void CommandQueue::enqueueBarrier()
+{
+    cl_int error = clEnqueueBarrierWithWaitList(id, 0, nullptr, nullptr);
+
+	if (error != CL_SUCCESS)
+        Error::add(ErrorType::USER_ERROR, "Enqueue barrier: " + toString(error));
 }
 
 }

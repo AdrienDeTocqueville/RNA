@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../clWrapper.h"
+#include "../Utility/clWrapper.h"
 #include "../Utility/Tensor.h"
 
 namespace rna
@@ -20,8 +20,8 @@ class Layer
         virtual void backpropCPU(const Tensor& _input, const Tensor& _outputGrad) = 0;
         virtual void backpropCL(cl::CommandQueue&, const Tensor&, const Tensor&) = 0;
 
-        virtual void updateInputGrad(cl::CommandQueue&, const Tensor&, const Tensor&) {};
-        virtual void updateParamsGrad(cl::CommandQueue&, const Tensor&, const Tensor&) {};
+//        virtual void updateInputGrad(cl::CommandQueue&, const Tensor&, const Tensor&) {};
+//        virtual void updateParamsGrad(cl::CommandQueue&, const Tensor&, const Tensor&) {};
 
 
         const Tensor& getOutput() const;

@@ -4,7 +4,7 @@
 #include <ostream>
 #include <vector>
 
-#include "../clWrapper.h"
+#include "clWrapper.h"
 
 using std::size_t;
 
