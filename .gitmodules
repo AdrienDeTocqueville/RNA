@@ -1,0 +1,3 @@
+[submodule "dependencies/Utility"]
+	path = dependencies/Utility
+	url = https://github.com/AdrienDeTocqueville/Utility.git
