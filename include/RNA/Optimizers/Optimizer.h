@@ -14,15 +14,22 @@ class Optimizer
 
         virtual ~Optimizer() {}
 
-        virtual void updateParams() = 0;
+        #ifdef USE_OPENCL
         virtual void updateParams(cl::CommandQueue& _commandQueue) = 0;
         virtual void openCL(cl::Context& _context) = 0;
+        #else
+        virtual void updateParams() = 0;
+        #endif // USE_OPENCL
 
     protected:
         std::vector<Tensor*>* params;
         std::vector<Tensor*>* paramsGrad;
 
-        int iteration; // TODO: actually increment it
+        #ifdef USE_OPENCL
+        cl::Kernel updateKernel;
+        #endif // USE_OPENCL
+
+        int iteration; // TODO: actually increment it sometime
 };
 
 }

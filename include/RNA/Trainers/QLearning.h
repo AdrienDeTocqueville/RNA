@@ -25,11 +25,15 @@ using Memory = std::vector<Transition>;
 class QLearning
 {
     public:
-        QLearning(rna::Network& _network, Tensor::value_type _discount);
+        QLearning(rna::Network& _network, Tensor::value_type _discount = 0.99);
         ~QLearning();
 
 
-        void train();
+        #ifdef USE_OPENCL
+        void train(const Memory& _memory, size_t _batchSize);
+        #else
+        void train(const Memory& _memory, size_t _batchSize = 32);
+        #endif // USE_OPENCL
 
 
         template<typename L, typename... Args>
@@ -38,7 +42,9 @@ class QLearning
             delete loss;
             loss = new L(args...);
 
+            #ifdef USE_OPENCL
             loss->openCL(network->getContext());
+            #endif // USE_OPENCL
         }
 
         template<typename O, typename... Args>
@@ -47,7 +53,9 @@ class QLearning
             delete optimizer;
             optimizer = new O(params, paramsGrad, args...);
 
+            #ifdef USE_OPENCL
             optimizer->openCL(network->getContext());
+            #endif // USE_OPENCL
         }
 
     private:
@@ -59,6 +67,10 @@ class QLearning
         std::vector<Tensor*> params, paramsGrad;
 
         Tensor::value_type discount;
+
+        #ifdef USE_OPENCL
+        cl::CommandQueue commandQueue;
+        #endif // USE_OPENCL
 };
 
 }

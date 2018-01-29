@@ -7,8 +7,6 @@ namespace rna
 
 class NLL: public Loss
 {
-    friend class Network;
-
     public:
         virtual Tensor::value_type getLoss(const Tensor& _estimation, const Tensor& _target) const;
 

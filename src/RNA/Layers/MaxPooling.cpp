@@ -53,7 +53,7 @@ void MaxPooling::backprop(cl::CommandQueue& _commandQueue, const Tensor& _inputB
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
     inputGrad.fill(0.0);
-    inputGrad.writeBuffer(_commandQueue);
+    _commandQueue.enqueueWrite(inputGrad);
 
     // inputGrad
     backwardKernel.setArg(0, inputGrad);
@@ -72,17 +72,17 @@ void MaxPooling::feedForward(const Tensor& _input)
     output.resize( {_input.size(0), _input.size(1) / poolWidth, _input.size(2) / poolHeight} );
     indices.resizeAs(output);
 
-    for (unsigned c(0) ; c < output.size(0) ; c++)
-    for (unsigned i(0) ; i < output.size(1) ; i++)
+    for (size_t c(0) ; c < output.size(0) ; c++)
+    for (size_t i(0) ; i < output.size(1) ; i++)
     {
-        for (unsigned j(0) ; j < output.size(2) ; j++)
+        for (size_t j(0) ; j < output.size(2) ; j++)
         {
             float maxInput = FLT_MIN;
             int maxIndex = -1;
 
-            for (int u = 0 ; u < poolWidth ; ++u)
+            for (size_t u = 0 ; u < poolWidth ; ++u)
             {
-                for (int v = 0 ; v < poolHeight ; ++v)
+                for (size_t v = 0 ; v < poolHeight ; ++v)
                 {
                     int inputIndex = _input.getIndex({c, poolWidth*i + u, poolHeight*j + v});
 

@@ -5,7 +5,7 @@
 namespace rna
 {
 
-class MSE: public Loss
+class Huber: public Loss
 {
     public:
         virtual Tensor::value_type getLoss(const Tensor& _estimation, const Tensor& _target) const;

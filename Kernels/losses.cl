@@ -14,3 +14,10 @@ __kernel void gradientNLL(__global float* _output, __global float* _target, int 
 
     _output[index*_inputWidth + (int)_target[index]] = -1.0f;
 }
+
+__kernel void gradientHuber(__global float* _output, __global float* _estimation, __global float* _target)
+{
+    const int index = get_global_id(0)*get_global_size(1) + get_global_id(1);
+
+    _output[index] = clamp(_estimation[index] - _target[index], -1.0f, 1.0f);
+}

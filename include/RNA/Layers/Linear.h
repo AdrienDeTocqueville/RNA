@@ -28,6 +28,7 @@ class Linear: public Layer
         #endif // USE_OPENCL
 
 
+        virtual void setParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad) override;
         virtual void getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad) override;
 
         virtual void saveToFile(std::ofstream& _file) const override;

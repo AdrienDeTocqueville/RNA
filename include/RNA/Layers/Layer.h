@@ -33,6 +33,7 @@ class Layer
         const Tensor& getInputGrad() const;
         const std::string& getType() const;
 
+        virtual void setParams(std::vector<Tensor*>&, std::vector<Tensor*>&) {}
         virtual void getParams(std::vector<Tensor*>&, std::vector<Tensor*>&) {}
 
         virtual void saveToFile(std::ofstream& _file) const;

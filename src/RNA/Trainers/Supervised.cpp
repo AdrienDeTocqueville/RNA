@@ -45,8 +45,10 @@ Supervised::Supervised(rna::Network& _network):
 {
     network->getParams(params, paramsGrad);
 
+    #ifdef USE_OPENCL
     if (!network->getContext())
         Error::add(ErrorType::USER_ERROR, "OpenCL is necessary for training: call openCL method on network");
+    #endif // USE_OPENCL
 }
 
 Supervised::~Supervised()
@@ -55,6 +57,7 @@ Supervised::~Supervised()
     delete optimizer;
 }
 
+#ifdef USE_OPENCL
 void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize)
 {
     cl::Context& context = network->getContext();
@@ -88,7 +91,7 @@ void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _miniba
     std::cout << "Temps: " << (time>1000?time/1000.0f:time) << (time>1000?" s":" ms") << std::endl;
 
     for (Tensor* param: params)
-        param->readBuffer(outOfOrder);
+        outOfOrder.enqueueRead(*param);
 
     outOfOrder.join();
 }
@@ -121,7 +124,7 @@ void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _minibatch
     std::cout << "Temps: " << (time>1000?time/1000.0f:time) << (time>1000?" s":" ms") << std::endl;
 
     for (Tensor* param: params)
-        param->readBuffer(commandQueue);
+        commandQueue.enqueueRead(*param);
 
     commandQueue.join();
 }
@@ -142,13 +145,13 @@ void Supervised::train_generator(Generator _generator, size_t _steps)
         const Tensor& gradient = loss->getGradient(commandQueue, output, batch.output);
 
         network->backprop(commandQueue, batch.input, gradient);
-        commandQueue.join();
+        optimizer->updateParams(commandQueue);
 
-        optimizer->updateParams();
+        commandQueue.join();
     }
 
     for (Tensor* param: params)
-        param->readBuffer(commandQueue);
+        commandQueue.enqueueRead(*param);
 
     commandQueue.join();
 
@@ -192,7 +195,7 @@ void Supervised::earlyStopping(const DataSet& _training, size_t _trainSteps, con
         for (Example& batch: testing)
         {
             const Tensor& output = network->feedForward(commandQueue, batch.input);
-            output.readBuffer(commandQueue, CL_TRUE);
+            commandQueue.enqueueRead(output, CL_TRUE);
 
             error += loss->getLoss(output, batch.output);
         }
@@ -206,7 +209,7 @@ void Supervised::earlyStopping(const DataSet& _training, size_t _trainSteps, con
 
             for (size_t k(0) ; k < params.size() ; k++)
             {
-                params[k]->readBuffer(commandQueue);
+                commandQueue.enqueueRead(*params[k], CL_TRUE);
 
                 for (size_t k(0) ; k < params.size() ; k++)
                     bestParams[k] = *params[k];
@@ -227,7 +230,7 @@ void Supervised::earlyStopping(const DataSet& _training, size_t _trainSteps, con
         for (size_t l(0) ; l < bestParams[k].nElements() ; l++)
             (*params[k])[l] = bestParams[k][l];
 
-        params[k]->writeBuffer(commandQueue);
+        commandQueue.enqueueWrite(*params[k]);
     }
 
     commandQueue.join();
@@ -267,7 +270,7 @@ void Supervised::earlyStopping_generator(Generator _training, size_t _trainSteps
             Example batch = _testing();
 
             const Tensor& output = network->feedForward(commandQueue, batch.input);
-            output.readBuffer(commandQueue, CL_TRUE);
+            commandQueue.enqueueWrite(output, CL_TRUE);
 
             error += loss->getLoss(output, batch.output);
         }
@@ -281,7 +284,7 @@ void Supervised::earlyStopping_generator(Generator _training, size_t _trainSteps
 
             for (size_t k(0) ; k < params.size() ; k++)
             {
-                params[k]->readBuffer(commandQueue, CL_TRUE);
+                commandQueue.enqueueRead(*params[k], CL_TRUE);
                 bestParams[k] = *params[k];
             }
         }
@@ -300,10 +303,35 @@ void Supervised::earlyStopping_generator(Generator _training, size_t _trainSteps
         for (size_t l(0) ; l < bestParams[k].nElements() ; l++)
             (*params[k])[l] = bestParams[k][l];
 
-        params[k]->writeBuffer(commandQueue);
+        commandQueue.enqueueWrite(*params[k]);
     }
 
     commandQueue.join();
 }
+
+#else
+void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize)
+{
+    auto debut = GetTickCount();
+
+    for (size_t step(0); step < _steps; ++step)
+    {
+        for (size_t i(0); i < _minibatchSize; i++)
+        {
+            const Example& example = Random::element(_dataSet);
+
+            const Tensor& output = network->feedForward(example.input);
+            const Tensor& gradient = loss->getGradient(output, example.output);
+
+            network->backprop(example.input, gradient);
+        }
+
+        optimizer->updateParams();
+    }
+
+    auto time = GetTickCount()-debut;
+    std::cout << "Temps: " << (time>1000?time/1000.0f:time) << (time>1000?" s":" ms") << std::endl;
+}
+#endif // USE_OPENCL
 
 }

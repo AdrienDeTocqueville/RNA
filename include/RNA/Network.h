@@ -13,12 +13,10 @@ class Network
 {
     public:
         Network();
-        Network(Network&& _network);
-//        Network(const Network& _network);
-
         ~Network();
 
-        Network& operator=(Network _network);
+        Network(const Network& _network) = delete;
+        Network& operator=(Network _network) = delete;
 
         void add(Layer* _layer);
         void clear();
@@ -45,22 +43,11 @@ class Network
         const Tensor& getOutput() const;
         Layer* getLayer(size_t _index) const;
 
+        void setParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad);
         void getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad) const;
 
         bool saveToFile(const std::string& _file) const;
         bool loadFromFile(const std::string& _file);
-
-        friend void swap(Network& first, Network& second)
-        {
-            using std::swap;
-
-            swap(first.layers, second.layers);
-
-            // FIXME: swap contexts
-//            #ifdef USE_OPENCL
-//            swap(first.context, second.context);
-//            #endif // USE_OPENCL
-        }
 
     private:
         std::vector<Layer*> layers;

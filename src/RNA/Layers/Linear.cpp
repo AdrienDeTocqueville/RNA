@@ -169,6 +169,25 @@ void Linear::backprop(const Tensor& _input, const Tensor& _outputGrad)
 }
 #endif // USE_OPENCL
 
+void Linear::setParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
+{
+    // biasGrad
+        biasGrad = *_paramsGrad.back();
+        _paramsGrad.pop_back();
+
+    // weightsGrad
+        weightsGrad = *_paramsGrad.back();
+        _paramsGrad.pop_back();
+
+    // bias
+        bias = *_params.back();
+        _params.pop_back();
+
+    // weights
+        weights = *_params.back();
+        _params.pop_back();
+}
+
 void Linear::getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
 {
     _params.push_back(&weights);

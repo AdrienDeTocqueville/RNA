@@ -48,8 +48,7 @@ void Reshape::feedForward(cl::CommandQueue& _commandQueue, const Tensor& _inputB
     output.resize(outputSize);
     output.openCL(_commandQueue.getContext());
 
-    clEnqueueCopyBuffer(_commandQueue(), _inputBatch.getBuffer(), output.getBuffer(), 0, 0,
-                        _inputBatch.nElements() * sizeof(Tensor::value_type), 0, nullptr, nullptr);
+    _commandQueue.enqueueCopy(_inputBatch.getBuffer(), output.getBuffer(), _inputBatch.nElements() * sizeof(Tensor::value_type));
 }
 
 void Reshape::backprop(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
@@ -57,8 +56,7 @@ void Reshape::backprop(cl::CommandQueue& _commandQueue, const Tensor& _inputBatc
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
 
-    clEnqueueCopyBuffer(_commandQueue(), _outputGradBatch.getBuffer(), inputGrad.getBuffer(), 0, 0,
-                        _outputGradBatch.nElements() * sizeof(Tensor::value_type), 0, nullptr, nullptr);
+    _commandQueue.enqueueCopy(_outputGradBatch.getBuffer(), inputGrad.getBuffer(), _outputGradBatch.nElements() * sizeof(Tensor::value_type));
 }
 
 #else

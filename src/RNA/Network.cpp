@@ -9,9 +9,13 @@ namespace rna
 Network::Network()
 { }
 
-Network::Network(Network&& _network)
+Network::~Network()
 {
-    swap(*this, _network);
+    #ifdef USE_OPENCL
+    releaseCL();
+    #endif // USE_OPENCL
+
+    clear();
 }
 
 /*
@@ -57,14 +61,6 @@ Network::Network(const Network& _network):
             layers.push_back(layer);
     }
 }
-*/
-
-Network::~Network()
-{
-    releaseCL();
-
-    clear();
-}
 
 Network& Network::operator=(Network _network)
 {
@@ -72,13 +68,16 @@ Network& Network::operator=(Network _network)
 
     return *this;
 }
+*/
 
 void Network::add(Layer* _layer)
 {
     layers.push_back(_layer);
 
+    #ifdef USE_OPENCL
     if (context)
         _layer->openCL(context);
+    #endif // USE_OPENCL
 }
 
 void Network::clear()
@@ -117,7 +116,7 @@ const Tensor& Network::feedForward(const Tensor& _input)
     cl::CommandQueue commandQueue; commandQueue.create(context, true);
 
     const Tensor& output = feedForward(commandQueue, _input);
-    output.readBuffer(commandQueue);
+    commandQueue.enqueueRead(output);
 
     commandQueue.join();
 
@@ -204,6 +203,20 @@ Layer* Network::getLayer(size_t _index) const
     return layers[_index];
 }
 
+void Network::setParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad)
+{
+    for (int l(layers.size()-1) ; l >= 0 ; l--)
+        layers[l]->setParams(_params, _paramsGrad);
+
+    #ifdef USE_OPENCL
+    if (context)
+    {
+        for (Layer* l: layers)
+            l->openCL(context);
+    }
+    #endif // USE_OPENCL
+}
+
 void Network::getParams(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGrad) const
 {
     for (Layer* layer: layers)
@@ -221,6 +234,24 @@ bool Network::saveToFile(const std::string& _file) const
     }
     else
         std::cout << "Saving network to file: " << _file << std::endl;
+
+    #ifdef USE_OPENCL
+    if (context)
+    {
+        cl::CommandQueue comQ(context, false);
+
+        std::vector<Tensor*> params, paramsGrad;
+        getParams(params, paramsGrad);
+
+        for (unsigned i(0); i < params.size(); ++i)
+        {
+            comQ.enqueueRead(*params[i], CL_FALSE);
+            comQ.enqueueRead(*paramsGrad[i], CL_FALSE);
+        }
+
+        comQ.join();
+    }
+    #endif // USE_OPENCL
 
     for (const Layer* layer: layers)
     {

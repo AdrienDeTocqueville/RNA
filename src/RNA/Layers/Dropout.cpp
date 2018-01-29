@@ -35,7 +35,7 @@ void Dropout::feedForward(cl::CommandQueue& _commandQueue, const Tensor& _inputB
     output.openCL(_commandQueue.getContext());
 
     rands.randomize(0.0f, 1.0f);
-    rands.writeBuffer(_commandQueue);
+    _commandQueue.enqueueWrite(rands);
 
     cl_int inputWidth = _inputBatch.getStride(0);
 

@@ -22,9 +22,10 @@
 				</Compiler>
 			</Target>
 			<Target title="Release">
-				<Option output="bin/Release/RNA" prefix_auto="1" extension_auto="1" />
+				<Option output="lib/RNAcpu" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
 				<Option object_output="obj/Release/" />
-				<Option type="1" />
+				<Option type="2" />
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-O2" />
@@ -34,10 +35,39 @@
 			<Target title="OpenCL">
 				<Option output="lib/RNA" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
-				<Option object_output="bin/OpenCL" />
+				<Option object_output="obj/OpenCL" />
 				<Option type="2" />
 				<Option compiler="gcc" />
 				<Compiler>
+					<Add option="-DUSE_OPENCL" />
+				</Compiler>
+				<Linker>
+					<Add library="C:/Windows/System32/OpenCL.dll" />
+				</Linker>
+			</Target>
+			<Target title="Test">
+				<Option output="bin/Test/RNA" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Test" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-Wextra" />
+					<Add option="-Wall" />
+					<Add option="-g" />
+				</Compiler>
+				<Linker>
+					<Add library="C:/Windows/System32/OpenCL.dll" />
+				</Linker>
+			</Target>
+			<Target title="TestCL">
+				<Option output="bin/TestCL/RNA" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/TestCL" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-Wextra" />
+					<Add option="-Wall" />
+					<Add option="-g" />
 					<Add option="-DUSE_OPENCL" />
 				</Compiler>
 				<Linker>
@@ -63,6 +93,7 @@
 		<Unit filename="include/RNA/Layers/MaxPooling.h" />
 		<Unit filename="include/RNA/Layers/Reshape.h" />
 		<Unit filename="include/RNA/Layers/activations.h" />
+		<Unit filename="include/RNA/Losses/Huber.h" />
 		<Unit filename="include/RNA/Losses/Loss.h" />
 		<Unit filename="include/RNA/Losses/MSE.h" />
 		<Unit filename="include/RNA/Losses/NLL.h" />
@@ -73,6 +104,10 @@
 		<Unit filename="include/RNA/RNA.h" />
 		<Unit filename="include/RNA/Trainers/QLearning.h" />
 		<Unit filename="include/RNA/Trainers/Supervised.h" />
+		<Unit filename="main.cpp">
+			<Option target="Test" />
+			<Option target="TestCL" />
+		</Unit>
 		<Unit filename="src/RNA/Layers/Convolutional.cpp" />
 		<Unit filename="src/RNA/Layers/Dropout.cpp" />
 		<Unit filename="src/RNA/Layers/Layer.cpp" />
@@ -81,10 +116,13 @@
 		<Unit filename="src/RNA/Layers/MaxPooling.cpp" />
 		<Unit filename="src/RNA/Layers/Reshape.cpp" />
 		<Unit filename="src/RNA/Layers/activations.cpp" />
+		<Unit filename="src/RNA/Losses/Huber.cpp" />
 		<Unit filename="src/RNA/Losses/Loss.cpp" />
 		<Unit filename="src/RNA/Losses/MSE.cpp" />
 		<Unit filename="src/RNA/Losses/NLL.cpp" />
 		<Unit filename="src/RNA/Network.cpp" />
+		<Unit filename="src/RNA/Optimizers/RMSProp.cpp" />
+		<Unit filename="src/RNA/Optimizers/SGD.cpp" />
 		<Unit filename="src/RNA/Trainers/QLearning.cpp" />
 		<Unit filename="src/RNA/Trainers/Supervised.cpp" />
 		<Extensions>
