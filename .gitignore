@@ -1,0 +1,21 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Custom
+*.layout
+*.depend
+
+main.cpp
+Image.cpp
+Image.h
