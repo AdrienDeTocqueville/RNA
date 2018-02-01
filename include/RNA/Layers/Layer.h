@@ -8,8 +8,6 @@ namespace rna
 
 class Layer
 {
-    friend class Network; // TODO: remove
-
     public:
         Layer(std::string _type);
         virtual ~Layer();

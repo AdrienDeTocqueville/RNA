@@ -22,7 +22,7 @@ class Network
         void clear();
 
         #ifdef USE_OPENCL
-        void openCL(cl_device_type _deviceType = CL_DEVICE_TYPE_ALL);
+        void openCL(cl::DeviceType _deviceType = cl::DeviceType::ALL);
         void releaseCL();
 
         const Tensor& feedForward(const Tensor& _input);

@@ -7,9 +7,10 @@
 		<Option compiler="gcc" />
 		<Build>
 			<Target title="Debug">
-				<Option output="bin/Debug/RNA" prefix_auto="1" extension_auto="1" />
+				<Option output="lib/RNA-d" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
 				<Option object_output="obj/Debug/" />
-				<Option type="1" />
+				<Option type="2" />
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-pedantic" />
@@ -20,9 +21,12 @@
 					<Add option="-DDEBUG" />
 					<Add option="-DTENSOR_SAFE" />
 				</Compiler>
+				<Linker>
+					<Add library="libUtility-d" />
+				</Linker>
 			</Target>
 			<Target title="Release">
-				<Option output="lib/RNAcpu" prefix_auto="1" extension_auto="1" />
+				<Option output="lib/RNA" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option object_output="obj/Release/" />
 				<Option type="2" />
@@ -31,11 +35,14 @@
 					<Add option="-O2" />
 					<Add option="-std=c++11" />
 				</Compiler>
+				<Linker>
+					<Add library="libUtility" />
+				</Linker>
 			</Target>
-			<Target title="OpenCL">
-				<Option output="lib/RNA" prefix_auto="1" extension_auto="1" />
+			<Target title="ReleaseCL">
+				<Option output="lib/RNACL" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
-				<Option object_output="obj/OpenCL" />
+				<Option object_output="obj/ReleaseCL" />
 				<Option type="2" />
 				<Option compiler="gcc" />
 				<Compiler>
@@ -43,6 +50,7 @@
 				</Compiler>
 				<Linker>
 					<Add library="C:/Windows/System32/OpenCL.dll" />
+					<Add library="libUtility" />
 				</Linker>
 			</Target>
 			<Target title="Test">
@@ -51,12 +59,13 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
+					<Add option="-O2" />
 					<Add option="-Wextra" />
 					<Add option="-Wall" />
-					<Add option="-g" />
 				</Compiler>
 				<Linker>
 					<Add library="C:/Windows/System32/OpenCL.dll" />
+					<Add library="libUtility" />
 				</Linker>
 			</Target>
 			<Target title="TestCL">
@@ -72,6 +81,7 @@
 				</Compiler>
 				<Linker>
 					<Add library="C:/Windows/System32/OpenCL.dll" />
+					<Add library="libUtility" />
 				</Linker>
 			</Target>
 		</Build>
@@ -82,8 +92,8 @@
 			<Add directory="include" />
 		</Compiler>
 		<Linker>
-			<Add library="dependencies/Utility/lib/libUtility.a" />
 			<Add directory="D:/Adrien/PROG/Libs/SFML-2.4.2/lib" />
+			<Add directory="dependencies/Utility/lib" />
 		</Linker>
 		<Unit filename="include/RNA/Layers/Convolutional.h" />
 		<Unit filename="include/RNA/Layers/Dropout.h" />
@@ -98,16 +108,13 @@
 		<Unit filename="include/RNA/Losses/MSE.h" />
 		<Unit filename="include/RNA/Losses/NLL.h" />
 		<Unit filename="include/RNA/Network.h" />
+		<Unit filename="include/RNA/Optimizers/Adam.h" />
 		<Unit filename="include/RNA/Optimizers/Optimizer.h" />
 		<Unit filename="include/RNA/Optimizers/RMSProp.h" />
 		<Unit filename="include/RNA/Optimizers/SGD.h" />
 		<Unit filename="include/RNA/RNA.h" />
 		<Unit filename="include/RNA/Trainers/QLearning.h" />
 		<Unit filename="include/RNA/Trainers/Supervised.h" />
-		<Unit filename="main.cpp">
-			<Option target="Test" />
-			<Option target="TestCL" />
-		</Unit>
 		<Unit filename="src/RNA/Layers/Convolutional.cpp" />
 		<Unit filename="src/RNA/Layers/Dropout.cpp" />
 		<Unit filename="src/RNA/Layers/Layer.cpp" />
@@ -121,10 +128,25 @@
 		<Unit filename="src/RNA/Losses/MSE.cpp" />
 		<Unit filename="src/RNA/Losses/NLL.cpp" />
 		<Unit filename="src/RNA/Network.cpp" />
+		<Unit filename="src/RNA/Optimizers/Adam.cpp" />
 		<Unit filename="src/RNA/Optimizers/RMSProp.cpp" />
 		<Unit filename="src/RNA/Optimizers/SGD.cpp" />
 		<Unit filename="src/RNA/Trainers/QLearning.cpp" />
 		<Unit filename="src/RNA/Trainers/Supervised.cpp" />
+		<Unit filename="test/MNIST.cpp">
+			<Option target="Test" />
+			<Option target="TestCL" />
+		</Unit>
+		<Unit filename="test/MNIST.h">
+			<Option target="Test" />
+			<Option target="TestCL" />
+		</Unit>
+		<Unit filename="test/RL.cpp" />
+		<Unit filename="test/RL.h" />
+		<Unit filename="test/main.cpp">
+			<Option target="Test" />
+			<Option target="TestCL" />
+		</Unit>
 		<Extensions>
 			<code_completion />
 			<envvars />

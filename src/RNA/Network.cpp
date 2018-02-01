@@ -19,12 +19,8 @@ Network::~Network()
 }
 
 /*
-Network::Network(const Network& _network):
-    context(_network.context)
+Network::Network(const Network& _network)
 {
-    if (context) // FIXME: Network copy
-        std::cout << "Copy of CL network: This will not work" << std::endl;
-
     for (const Layer* originalLayer: _network.layers)
     {
         std::string layerType = originalLayer->type;
@@ -89,7 +85,7 @@ void Network::clear()
 }
 
 #ifdef USE_OPENCL
-void Network::openCL(cl_device_type _deviceType)
+void Network::openCL(cl::DeviceType _deviceType)
 {
     if (context)
         return;

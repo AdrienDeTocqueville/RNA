@@ -37,9 +37,7 @@ void LogSoftMax::backprop(cl::CommandQueue& _commandQueue, const Tensor& _inputB
     backwardKernel.setArg(3, output);
     backwardKernel.setArg(4,_outputGradBatch.size(1));
 
-    cl_event event;
-    _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)}, &event);
-    _commandQueue.enqueueBarrier({event});
+    _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)});
 }
 
 #else

@@ -41,6 +41,8 @@ class Supervised
         void train(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize = 32);
         #endif // USE_OPENCL
 
+        Tensor::value_type validate(const DataSet& _testing) const;
+
 
         template<typename L, typename... Args>
         void setLoss(Args&&... args)

@@ -29,7 +29,7 @@ class Optimizer
         cl::Kernel updateKernel;
         #endif // USE_OPENCL
 
-        int iteration; // TODO: actually increment it sometime
+        int iteration; // TODO: auto increment ?
 };
 
 }

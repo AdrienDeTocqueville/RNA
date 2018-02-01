@@ -19,7 +19,7 @@ RMSProp::RMSProp(std::vector<Tensor*>& _params, std::vector<Tensor*>& _paramsGra
 #ifdef USE_OPENCL
 void RMSProp::updateParams(cl::CommandQueue& _commandQueue)
 {
-//    learningRate *= (1.0 / (1.0 + learningRateDecay * iteration));
+//    learningRate *= (1.0 / (1.0 + learningRateDecay * ++iteration));
 //    updateKernel.setArg(3, learningRate);
 
     for (size_t i(0); i < params->size(); i++)
@@ -48,7 +48,7 @@ void RMSProp::openCL(cl::Context& _context)
 #else
 void RMSProp::updateParams()
 {
-//    learningRate *= (1.0 / (1.0 + learningRateDecay * iteration));
+//    learningRate *= (1.0 / (1.0 + learningRateDecay * ++iteration));
 
     for (size_t i(0); i < params->size(); i++)
     {

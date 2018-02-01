@@ -128,15 +128,15 @@ void Convolutional::updateInputGrad(cl::CommandQueue& _commandQueue, const Tenso
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_outputGradBatch);
 
-    std::vector<cl_event> events(_inputBatch.size(0), nullptr);
+//    std::vector<cl_event> events(_inputBatch.size(0), nullptr);
 
     for (int i(0) ; i < (int)_inputBatch.size(0) ; i++)
     {
         backwardKernel.setArg(6, i);
-        _commandQueue.enqueueKernel(backwardKernel, {inputGrad.size(1), inputGrad.size(2), inputGrad.size(3)}, &events[i]);
+        _commandQueue.enqueueKernel(backwardKernel, {inputGrad.size(1), inputGrad.size(2), inputGrad.size(3)} /*, &events[i]*/ );
     }
 
-    _commandQueue.enqueueBarrier(events);
+//    _commandQueue.enqueueBarrier(events);
 }
 
 void Convolutional::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)

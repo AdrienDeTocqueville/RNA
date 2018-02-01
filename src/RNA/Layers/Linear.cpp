@@ -107,9 +107,7 @@ void Linear::updateInputGrad(cl::CommandQueue& _commandQueue, const Tensor& _inp
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_outputGradBatch);
 
-    cl_event event;
-    _commandQueue.enqueueKernel(backwardKernel, inputGrad.size(), &event);
-    _commandQueue.enqueueBarrier({event});
+    _commandQueue.enqueueKernel(backwardKernel, inputGrad.size());
 }
 
 void Linear::updateParamsGrad(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)

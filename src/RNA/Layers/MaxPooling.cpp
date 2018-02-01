@@ -61,9 +61,7 @@ void MaxPooling::backprop(cl::CommandQueue& _commandQueue, const Tensor& _inputB
     backwardKernel.setArg(2, indices);
     backwardKernel.setArg(3, _inputBatch.size(0));
 
-    cl_event event;
-    _commandQueue.enqueueKernel(backwardKernel, {indices.size(1), indices.size(2), indices.size(3)}, &event);
-    _commandQueue.enqueueBarrier({event});
+    _commandQueue.enqueueKernel(backwardKernel, {indices.size(1), indices.size(2), indices.size(3)});
 }
 
 #else

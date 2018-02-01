@@ -3,7 +3,7 @@
 #include "Utility/Error.h"
 #include "Utility/Random.h"
 
-#include <cfloat>
+#include <limits>
 #include "windows.h"
 
 namespace rna
@@ -58,7 +58,7 @@ Supervised::~Supervised()
 }
 
 #ifdef USE_OPENCL
-void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize)
+void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize) // NOTE: doesn't work anymore
 {
     cl::Context& context = network->getContext();
 
@@ -81,7 +81,7 @@ void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _miniba
         inOrder.join();
 
         network->backprop(outOfOrder, batch.input, gradient);
-        outOfOrder.enqueueBarrier(); // NOTE: is it necessary ?
+        outOfOrder.enqueueBarrier(); // is it necessary ?
         optimizer->updateParams(outOfOrder);
 
         outOfOrder.join();
@@ -173,7 +173,7 @@ void Supervised::earlyStopping(const DataSet& _training, size_t _trainSteps, con
 
     size_t j = 0;
     std::vector<Tensor> bestParams(params.size());
-    float bestError = FLT_MAX, errorFactor = 1.0f / testing.size();
+    Tensor::value_type bestError = std::numeric_limits<Tensor::value_type>::max();
 
     while (j++ < _patience)
     {
@@ -191,19 +191,12 @@ void Supervised::earlyStopping(const DataSet& _training, size_t _trainSteps, con
         }
 
 
-        float error = 0.0f;
-        for (Example& batch: testing)
-        {
-            const Tensor& output = network->feedForward(commandQueue, batch.input);
-            commandQueue.enqueueRead(output, CL_TRUE);
-
-            error += loss->getLoss(output, batch.output);
-        }
-        error *= errorFactor;
+        Tensor::value_type error = validate(testing);
 
         if (error < bestError)
         {
             std::cout << "Error = " << error << " (new best)" << std::endl;
+
             bestError = error;
             j = 0;
 
@@ -246,7 +239,7 @@ void Supervised::earlyStopping_generator(Generator _training, size_t _trainSteps
 
     size_t j = 0;
     std::vector<Tensor> bestParams(params.size());
-    float bestError = FLT_MAX, errorFactor = 1.0f / _testSteps;
+    Tensor::value_type bestError = std::numeric_limits<Tensor::value_type>::max(), errorFactor = 1.0f / _testSteps;
 
     while (j++ < _patience)
     {
@@ -316,6 +309,9 @@ void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _minibatch
 
     for (size_t step(0); step < _steps; ++step)
     {
+        if (step % (_steps / 10) == 0)
+            std::cout << "Step: " << step << std::endl;
+
         for (size_t i(0); i < _minibatchSize; i++)
         {
             const Example& example = Random::element(_dataSet);
@@ -333,5 +329,19 @@ void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _minibatch
     std::cout << "Temps: " << (time>1000?time/1000.0f:time) << (time>1000?" s":" ms") << std::endl;
 }
 #endif // USE_OPENCL
+
+Tensor::value_type Supervised::validate(const rna::DataSet& _testing) const
+{
+    Tensor::value_type error = 0.0f;
+
+    for (const Example& batch: _testing)
+    {
+        const Tensor& output = network->feedForward(batch.input);
+
+        error += loss->getLoss(output, batch.output);
+    }
+
+    return error / _testing.size();
+}
 
 }

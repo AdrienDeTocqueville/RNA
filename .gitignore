@@ -15,7 +15,3 @@
 # Custom
 *.layout
 *.depend
-
-main.cpp
-Image.cpp
-Image.h

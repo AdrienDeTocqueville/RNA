@@ -16,6 +16,7 @@
 #include "Layers/activations.h"
 
 #include "Optimizers/SGD.h"
+#include "Optimizers/Adam.h"
 #include "Optimizers/RMSProp.h"
 
 #include "Trainers/QLearning.h"

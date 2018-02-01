@@ -49,13 +49,10 @@ void SGD::updateParams()
         Tensor& param = *(*params)[i];
         Tensor& paramGrad = *(*paramsGrad)[i];
 
-        for (unsigned j(0); j < param.nElements(); j++)
-        {
-            paramsDelta[i][j] = inertia * paramsDelta[i][j] - learningRate * paramGrad[j];
-            param[j] += paramsDelta[i][j];
+        paramsDelta[i] = inertia * paramsDelta[i] - 0.01f * learningRate * paramGrad;
+        param += paramsDelta[i];
 
-            paramGrad[j] = 0.0f;
-        }
+        paramGrad.fill(0.0f);
     }
 }
 #endif // USE_OPENCL

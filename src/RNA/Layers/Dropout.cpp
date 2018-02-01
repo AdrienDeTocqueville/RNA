@@ -37,7 +37,7 @@ void Dropout::feedForward(cl::CommandQueue& _commandQueue, const Tensor& _inputB
     rands.randomize(0.0f, 1.0f);
     _commandQueue.enqueueWrite(rands);
 
-    cl_int inputWidth = _inputBatch.getStride(0);
+    int inputWidth = _inputBatch.getStride(0);
 
     forwardKernel.setArg(0, output);
     forwardKernel.setArg(1,_inputBatch);
@@ -53,16 +53,14 @@ void Dropout::backprop(cl::CommandQueue& _commandQueue, const Tensor& _inputBatc
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
 
-    cl_int inputWidth = _inputBatch.getStride(0);
+    int inputWidth = _inputBatch.getStride(0);
 
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1, output);
     backwardKernel.setArg(2,_outputGradBatch);
-    backwardKernel.setArg(3, sizeof(cl_int), &inputWidth);
+    backwardKernel.setArg(3, sizeof(int), &inputWidth);
 
-    cl_event event;
-    _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)}, &event);
-    _commandQueue.enqueueBarrier({event});
+    _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)});
 }
 
 #else
@@ -71,7 +69,7 @@ void Dropout::feedForward(const Tensor& _input)
     output = _input;
 
     for (unsigned i(0) ; i < _input.nElements() ; i++)
-        if (Random::nextFloat() < rate)
+        if (Random::next<Tensor::value_type>() < rate)
             output[i] = 0.0;
 }
 

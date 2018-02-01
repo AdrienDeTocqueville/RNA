@@ -26,7 +26,7 @@ void Activation::feedForward(cl::CommandQueue& _commandQueue, const Tensor& _inp
     output.resizeAs(_inputBatch);
     output.openCL(_commandQueue.getContext());
 
-    cl_int inputWidth = _inputBatch.getStride(0);
+    int inputWidth = _inputBatch.getStride(0);
 
     forwardKernel.setArg(0, output);
     forwardKernel.setArg(1,_inputBatch);
@@ -40,17 +40,15 @@ void Activation::backprop(cl::CommandQueue& _commandQueue, const Tensor& _inputB
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
 
-    cl_int inputWidth = _inputBatch.getStride(0);
+    int inputWidth = _inputBatch.getStride(0);
 
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_inputBatch);
     backwardKernel.setArg(2, output);
     backwardKernel.setArg(3,_outputGradBatch);
-    backwardKernel.setArg(4, sizeof(cl_int), &inputWidth);
+    backwardKernel.setArg(4, sizeof(int), &inputWidth);
 
-    cl_event event;
-    _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)}, &event);
-    _commandQueue.enqueueBarrier({event});
+    _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)});
 }
 
 #else
