@@ -34,6 +34,8 @@ void RMSProp::updateParams(cl::CommandQueue& _commandQueue)
 
 void RMSProp::openCL(cl::Context& _context)
 {
+    Optimizer::openCL(_context);
+
     auto& p = _context.getProgram("Kernels/rmsprop.cl");
     updateKernel.create(p, "updateParam");
 

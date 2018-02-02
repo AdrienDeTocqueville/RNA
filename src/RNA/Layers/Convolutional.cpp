@@ -2,7 +2,10 @@
 #include "Utility/Error.h"
 
 #include <fstream>
+
+#ifdef TENSOR_SAFE
 #include <iostream>
+#endif // TENSOR_SAFE
 
 namespace rna
 {

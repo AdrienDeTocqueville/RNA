@@ -84,7 +84,7 @@ void QLearning::train(const Memory& _memory, size_t _batchSize)
 
     // Perform backprop
     network->backprop(commandQueue, stateBatch, gradientSparse);
-    optimizer->updateParams(commandQueue);
+    optimizer->updateParams(commandQueue, _batchSize);
 
     commandQueue.join();
 }
@@ -107,7 +107,7 @@ void QLearning::train(const Memory& _memory, size_t _batchSize)
         network->backprop(transition.state, gradient);
     }
 
-    optimizer->updateParams();
+    optimizer->updateParams(_batchSize);
 }
 #endif // USE_OPENCL
 

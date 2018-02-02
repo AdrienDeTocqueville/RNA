@@ -7,6 +7,7 @@ namespace RL
 {
 
 Tensor gamestate({1}, 4);
+const int numActions = 2;
 
 void test()
 {
@@ -45,7 +46,7 @@ void test()
         unsigned HU = 6;
         ann.add( new rna::Linear(1, HU) );
         ann.add( new rna::Tanh() );
-        ann.add( new rna::Linear(HU, 2) );
+        ann.add( new rna::Linear(HU, numActions) );
         ann.add( new rna::Tanh() );
 
         rna::QLearning trainer(ann);
@@ -53,7 +54,6 @@ void test()
             trainer.setOptimizer<rna::RMSProp>(0.001f);
 
 
-        unsigned numActions = 2;
 
         unsigned episodes = 10000;
         unsigned memSize = 1000;
@@ -167,7 +167,7 @@ bool envStep(const size_t& action, double& reward, Tensor& nextState, bool v)
 
 void SARSA()
 {
-    double Q[9][2] = {0.0};
+    double Q[9][numActions] = {0.0};
 
     unsigned episodes = 10000;
     double discount = 0.99;
@@ -188,7 +188,7 @@ void SARSA()
             double alpha = 0.01;
 
             if (Random::next<double>() < epsilon)
-                action = Random::next<int>(0, 2);
+                action = Random::next<int>(0, numActions);
 
             else
                 if (Q[(int)state(0)][0] > Q[(int)state(0)][1])
@@ -211,7 +211,7 @@ void SARSA()
 
     for (unsigned i(0); i < 9; i++)
     {
-        for (unsigned j(0); j < 2; j++)
+        for (unsigned j(0); j < numActions; j++)
         {
             std::cout << Q[i][j] << "  ";
         }
@@ -223,8 +223,8 @@ void SARSALambda()
 {
     double lambda = 0.9;
 
-    double Q[9][2] = {0.0};
-    double E[9][2] = {0.0};
+    double Q[9][numActions] = {0.0};
+    double E[9][numActions] = {0.0};
 
     unsigned episodes = 10000;
     double discount = 0.99;
@@ -248,7 +248,7 @@ void SARSALambda()
 
             size_t action2;
             if (Random::next<double>() < epsilon)
-                action2 = Random::next<int>(0, 2);
+                action2 = Random::next<int>(0, numActions);
 
             else
                 if (Q[(int)nextState(0)][0] > Q[(int)nextState(0)][1])
@@ -261,7 +261,7 @@ void SARSALambda()
 
             for (unsigned i(0); i < 9; i++)
             {
-                for (unsigned j(0); j < 2; j++)
+                for (unsigned j(0); j < numActions; j++)
                 {
                     Q[(int)state(0)][action] += alpha * delta * E[(int)state(0)][action];
                     E[(int)state(0)][action] *= discount * lambda;
@@ -277,7 +277,7 @@ void SARSALambda()
 
     for (unsigned i(0); i < 9; i++)
     {
-        for (unsigned j(0); j < 2; j++)
+        for (unsigned j(0); j < numActions; j++)
         {
             std::cout << Q[i][j] << "  ";
         }
@@ -287,7 +287,7 @@ void SARSALambda()
 
 void QLearning()
 {
-    Tensor Q({9, 2}, 0.0);
+    Tensor Q({9, numActions}, 0.0);
 
     unsigned episodes = 10000;
     double discount = 0.99;
@@ -308,7 +308,7 @@ void QLearning()
             double alpha = 0.01;
 
             if (Random::next<double>() < epsilon)
-                action = Random::next<int>(0, 2);
+                action = Random::next<int>(0, numActions);
 
             else
                 if (Q(state(0), 0) > Q(state(0), 1))

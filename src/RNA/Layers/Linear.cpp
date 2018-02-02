@@ -2,6 +2,7 @@
 #include "Utility/Error.h"
 
 #include <fstream>
+#include <iostream>
 
 namespace rna
 {

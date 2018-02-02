@@ -40,13 +40,11 @@ void Activation::backprop(cl::CommandQueue& _commandQueue, const Tensor& _inputB
     inputGrad.resizeAs(_inputBatch);
     inputGrad.openCL(_commandQueue.getContext());
 
-    int inputWidth = _inputBatch.getStride(0);
-
     backwardKernel.setArg(0, inputGrad);
     backwardKernel.setArg(1,_inputBatch);
     backwardKernel.setArg(2, output);
     backwardKernel.setArg(3,_outputGradBatch);
-    backwardKernel.setArg(4, sizeof(int), &inputWidth);
+    backwardKernel.setArg(4, _inputBatch.getStride(0));
 
     _commandQueue.enqueueKernel(backwardKernel, {_inputBatch.size(0)});
 }

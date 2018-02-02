@@ -128,7 +128,7 @@ void Network::backprop(const Tensor& _input, const Tensor& _outputGrad)
 
 const Tensor& Network::feedForward(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch)
 {
-    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
+    _inputBatch.openCL(context);
 
 
     layers.front()->feedForward(_commandQueue, _inputBatch);
@@ -142,11 +142,11 @@ const Tensor& Network::feedForward(cl::CommandQueue& _commandQueue, const Tensor
 
 void Network::backprop(cl::CommandQueue& _commandQueue, const Tensor& _inputBatch, const Tensor& _outputGradBatch)
 {
-    _inputBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
-    _outputGradBatch.openCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR);
-
+    _inputBatch.openCL(context);
+    _outputGradBatch.openCL(context);
 
     const Tensor* g = &_outputGradBatch;
+
 
     for (unsigned l(layers.size()-1) ; l >= 1 ; l--)
     {

@@ -30,15 +30,15 @@ class Supervised
 
 
         #ifdef USE_OPENCL
-        void trainOOO(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize = 32);
+        void trainOOO(const DataSet& _dataSet, size_t _steps, size_t _batchSize = 32);
 
-        void train(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize = 32);
+        void train(const DataSet& _dataSet, size_t _steps, size_t _batchSize = 32);
         void train_generator(Generator _generator, size_t _steps);
 
-        void earlyStopping(const DataSet& _training, size_t _trainSteps, const DataSet& _testing, size_t _patience, size_t _minibatchSize = 32);
+        void earlyStopping(const DataSet& _training, size_t _trainSteps, const DataSet& _testing, size_t _patience, size_t _batchSize = 32);
         void earlyStopping_generator(Generator _training, size_t _trainSteps, Generator _testing, size_t _testSteps, size_t _patience);
         #else
-        void train(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize = 32);
+        void train(const DataSet& _dataSet, size_t _steps, size_t _batchSize = 32);
         #endif // USE_OPENCL
 
         Tensor::value_type validate(const DataSet& _testing) const;

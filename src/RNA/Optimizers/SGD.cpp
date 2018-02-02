@@ -1,7 +1,5 @@
 #include "RNA/Optimizers/SGD.h"
 
-#include <cmath>
-
 namespace rna
 {
 
@@ -31,6 +29,8 @@ void SGD::updateParams(cl::CommandQueue& _commandQueue)
 
 void SGD::openCL(cl::Context& _context)
 {
+    Optimizer::openCL(_context);
+
     auto& p = _context.getProgram("Kernels/sgd.cl");
     updateKernel.create(p, "updateParam");
 

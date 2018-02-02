@@ -7,14 +7,13 @@
 #include "MNIST.h"
 #include "Utility/Random.h"
 
-#define RANDOM_SEED
+//#define RANDOM_SEED
 
 void loadXOR(unsigned _size, rna::DataSet& _data);
 
 int main()
 {
     #ifdef RANDOM_SEED
-        Random::init();
         std::cout << "Seed: " << Random::getSeed() << std::endl << std::endl;
     #else
         Random::setSeed(1);

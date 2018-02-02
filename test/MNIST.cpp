@@ -11,17 +11,16 @@ void test()
     std::cout << std::endl << "=== Testing MNIST ===" << std::endl;
 
 
-    rna::DataSet training, testing, testBatch;
+    rna::DataSet training, testing;
     load(training, testing);
 
     #ifdef USE_OPENCL
     rna::Network ann;
-    ann.openCL(cl::DeviceType::GPU);
+    ann.openCL(cl::DeviceType::CPU);
 
     ann.add( new rna::Reshape({28*28}) );
     ann.add( new rna::Linear(28*28, 10) );
     ann.add( new rna::LogSoftMax() );
-
 
     rna::Supervised trainer(ann);
         trainer.setLoss<rna::NLL>();
@@ -47,7 +46,6 @@ void test()
     ann.add( new rna::Reshape({28*28}) );
     ann.add( new rna::Linear(28*28, 10) );
     ann.add( new rna::LogSoftMax() );
-
 
     rna::Supervised trainer(ann);
         trainer.setLoss<rna::NLL>();

@@ -3,7 +3,9 @@
 #include "Utility/Error.h"
 #include "Utility/Random.h"
 
+#include <iostream>
 #include <limits>
+
 #include "windows.h"
 
 namespace rna
@@ -58,7 +60,7 @@ Supervised::~Supervised()
 }
 
 #ifdef USE_OPENCL
-void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize) // NOTE: doesn't work anymore
+void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _batchSize) // NOTE: doesn't work anymore
 {
     cl::Context& context = network->getContext();
 
@@ -68,7 +70,7 @@ void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _miniba
 
 
     DataSet dataSet;
-    buildBatches(_dataSet, dataSet, _minibatchSize);
+    buildBatches(_dataSet, dataSet, _batchSize);
 
     auto debut = GetTickCount();
 
@@ -82,7 +84,7 @@ void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _miniba
 
         network->backprop(outOfOrder, batch.input, gradient);
         outOfOrder.enqueueBarrier(); // is it necessary ?
-        optimizer->updateParams(outOfOrder);
+        optimizer->updateParams(outOfOrder, _batchSize);
 
         outOfOrder.join();
     }
@@ -96,14 +98,14 @@ void Supervised::trainOOO(const DataSet& _dataSet, size_t _steps, size_t _miniba
     outOfOrder.join();
 }
 
-void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize)
+void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _batchSize)
 {
     cl::CommandQueue commandQueue;
     commandQueue.create(network->getContext(), true);
 
 
     DataSet dataSet;
-    buildBatches(_dataSet, dataSet, _minibatchSize);
+    buildBatches(_dataSet, dataSet, _batchSize);
 
     auto debut = GetTickCount();
 
@@ -115,7 +117,7 @@ void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _minibatch
         const Tensor& gradient = loss->getGradient(commandQueue, output, batch.output);
 
         network->backprop(commandQueue, batch.input, gradient);
-        optimizer->updateParams(commandQueue);
+        optimizer->updateParams(commandQueue, _batchSize);
 
         commandQueue.join();
     }
@@ -145,7 +147,7 @@ void Supervised::train_generator(Generator _generator, size_t _steps)
         const Tensor& gradient = loss->getGradient(commandQueue, output, batch.output);
 
         network->backprop(commandQueue, batch.input, gradient);
-        optimizer->updateParams(commandQueue);
+        optimizer->updateParams(commandQueue, batch.input.size(0));
 
         commandQueue.join();
     }
@@ -159,7 +161,7 @@ void Supervised::train_generator(Generator _generator, size_t _steps)
     std::cout << "Temps: " << (time>1000?time/1000.0f:time) << (time>1000?" s":" ms") << std::endl;
 }
 
-void Supervised::earlyStopping(const DataSet& _training, size_t _trainSteps, const DataSet& _testing, size_t _patience, size_t _minibatchSize)
+void Supervised::earlyStopping(const DataSet& _training, size_t _trainSteps, const DataSet& _testing, size_t _patience, size_t _batchSize)
 {
     auto debut = GetTickCount();
 
@@ -168,8 +170,8 @@ void Supervised::earlyStopping(const DataSet& _training, size_t _trainSteps, con
 
 
     DataSet training, testing;
-    buildBatches(_training, training, _minibatchSize);
-    buildBatches(_testing, testing, _minibatchSize);
+    buildBatches(_training, training, _batchSize);
+    buildBatches(_testing, testing, _batchSize);
 
     size_t j = 0;
     std::vector<Tensor> bestParams(params.size());
@@ -185,7 +187,7 @@ void Supervised::earlyStopping(const DataSet& _training, size_t _trainSteps, con
             const Tensor& gradient = loss->getGradient(commandQueue, output, batch.output);
 
             network->backprop(commandQueue, batch.input, gradient);
-            optimizer->updateParams(commandQueue);
+            optimizer->updateParams(commandQueue, _batchSize);
 
             commandQueue.join();
         }
@@ -251,7 +253,7 @@ void Supervised::earlyStopping_generator(Generator _training, size_t _trainSteps
             const Tensor& gradient = loss->getGradient(commandQueue, output, batch.output);
 
             network->backprop(commandQueue, batch.input, gradient);
-            optimizer->updateParams(commandQueue);
+            optimizer->updateParams(commandQueue, batch.input.size(0));
 
             commandQueue.join();
         }
@@ -303,7 +305,7 @@ void Supervised::earlyStopping_generator(Generator _training, size_t _trainSteps
 }
 
 #else
-void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _minibatchSize)
+void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _batchSize)
 {
     auto debut = GetTickCount();
 
@@ -312,7 +314,7 @@ void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _minibatch
         if (step % (_steps / 10) == 0)
             std::cout << "Step: " << step << std::endl;
 
-        for (size_t i(0); i < _minibatchSize; i++)
+        for (size_t i(0); i < _batchSize; i++)
         {
             const Example& example = Random::element(_dataSet);
 
@@ -322,7 +324,7 @@ void Supervised::train(const DataSet& _dataSet, size_t _steps, size_t _minibatch
             network->backprop(example.input, gradient);
         }
 
-        optimizer->updateParams();
+        optimizer->updateParams(_batchSize);
     }
 
     auto time = GetTickCount()-debut;

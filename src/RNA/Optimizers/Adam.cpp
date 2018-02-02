@@ -27,6 +27,8 @@ void Adam::updateParams(cl::CommandQueue& _commandQueue)
 
 void Adam::openCL(cl::Context& _context)
 {
+    Optimizer::openCL(_context);
+
     auto& p = _context.getProgram("Kernels/Adam.cl");
     updateKernel.create(p, "updateParam");
 
